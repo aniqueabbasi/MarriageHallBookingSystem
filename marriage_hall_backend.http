@@ -1,0 +1,6 @@
+@marriage_hall_backend_HostAddress = http://localhost:5053
+
+GET {{marriage_hall_backend_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
