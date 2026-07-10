@@ -1,0 +1,32 @@
+final List<Map<String, dynamic>> dummyOwnerBookings = [
+  {
+    'hallName': 'Emerald Banquet Hall',
+    'clientName': 'Bilal Ahmed',
+    'functionType': 'Barat / Nikkah',
+    'date': '15 Aug 2026',
+    'slot': 'Evening Slot (6:00 PM - 10:00 PM)',
+    'guests': '850',
+    'price': 'Rs. 350,000',
+    'status': 'Confirmed',
+  },
+  {
+    'hallName': 'Emerald Banquet Hall',
+    'clientName': 'Sana Malik',
+    'functionType': 'Walima',
+    'date': '02 Sep 2026',
+    'slot': 'Day Slot (12:00 PM - 5:00 PM)',
+    'guests': '600',
+    'price': 'Rs. 350,000',
+    'status': 'Pending',
+  },
+  {
+    'hallName': 'Emerald Banquet Hall',
+    'clientName': 'Usman Tariq',
+    'functionType': 'Engagement',
+    'date': '20 Jun 2026',
+    'slot': 'Evening Slot (6:00 PM - 10:00 PM)',
+    'guests': '400',
+    'price': 'Rs. 350,000',
+    'status': 'Completed',
+  },
+];
