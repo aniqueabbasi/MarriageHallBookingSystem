@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Marriage Hall Admin Panel</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --accent-hover: #4f46e5;
+    --danger: #ef4444;
+    --ok: #22c55e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header .who { font-size: 13px; color: var(--muted); }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover { background: var(--accent-hover); }
+  button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  button.danger { background: var(--danger); }
+  input, select {
+    background: #0b1220;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  #login-screen {
+    max-width: 380px;
+    margin: 80px auto;
+    background: var(--panel);
+    padding: 28px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  #login-screen h2 { margin-top: 0; }
+  #login-screen label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  #login-screen input { width: 100%; }
+  #login-screen button { width: 100%; margin-top: 18px; padding: 10px; }
+  .error { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 16px; }
+  main { padding: 20px 24px; display: none; }
+  nav.tabs { display: flex; gap: 8px; margin-bottom: 18px; }
+  nav.tabs button { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  nav.tabs button.active { background: var(--accent); color: white; border-color: var(--accent); }
+  section.tab { display: none; }
+  section.tab.active { display: block; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; background: #17233a; }
+  tr:last-child td { border-bottom: none; }
+  .badge { padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .badge.Admin { background: #7c3aed33; color: #c4b5fd; }
+  .badge.HallOwner { background: #0891b233; color: #67e8f9; }
+  .badge.Customer { background: #33415533; color: #cbd5e1; }
+  .badge.Pending { background: #ca8a0433; color: #fde68a; }
+  .badge.Confirmed { background: #16a34a33; color: #86efac; }
+  .badge.Completed { background: #0891b233; color: #67e8f9; }
+  .badge.Cancelled, .badge.Rejected { background: #dc262633; color: #fca5a5; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .toolbar .status { font-size: 12px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+  .cfg { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <h2>Admin Login</h2>
+  <label>API Base URL</label>
+  <input id="apiBase" value="http://localhost:5053" />
+  <label>Email</label>
+  <input id="email" type="email" placeholder="admin@example.com" />
+  <label>Password</label>
+  <input id="password" type="password" />
+  <button onclick="login()">Log in</button>
+  <div class="error" id="loginError"></div>
+</div>
+
+<main id="app">
+  <header>
+    <h1>Marriage Hall Admin Panel</h1>
+    <div class="who">
+      <span id="whoami"></span>
+      &nbsp;·&nbsp;
+      <button class="secondary" onclick="logout()">Log out</button>
+    </div>
+  </header>
+
+  <div style="padding: 20px 24px 0;">
+    <nav class="tabs">
+      <button class="active" onclick="showTab('users')">Users</button>
+      <button onclick="showTab('halls')">Halls</button>
+      <button onclick="showTab('bookings')">Bookings</button>
+    </nav>
+
+    <section id="tab-users" class="tab active">
+      <div class="toolbar">
+        <div class="status" id="users-status"></div>
+        <button class="secondary" onclick="loadUsers()">Refresh</button>
+      </div>
+      <div id="users-container"></div>
+    </section>
+
+    <section id="tab-halls" class="tab">
+      <div class="toolbar">
+        <div class="status" id="halls-status"></div>
+        <button class="secondary" onclick="loadHalls()">Refresh</button>
+      </div>
+      <div id="halls-container"></div>
+    </section>
+
+    <section id="tab-bookings" class="tab">
+      <div class="toolbar">
+        <div class="status" id="bookings-status"></div>
+        <button class="secondary" onclick="loadBookings()">Refresh</button>
+      </div>
+      <div id="bookings-container"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+let apiBase = sessionStorage.getItem('apiBase') || 'http://localhost:5053';
+let token = sessionStorage.getItem('accessToken') || '';
+let currentUser = JSON.parse(sessionStorage.getItem('currentUser') || 'null');
+
+document.getElementById('apiBase').value = apiBase;
+
+async function api(path, options = {}) {
+  const res = await fetch(apiBase + path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      ...(options.headers || {})
+    }
+  });
+  if (!res.ok) {
+    let body;
+    try { body = await res.json(); } catch { body = { message: res.statusText }; }
+    throw new Error(body.message || ('Request failed: ' + res.status));
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+async function login() {
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  apiBase = document.getElementById('apiBase').value.trim().replace(/\/$/, '');
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  try {
+    const data = await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    });
+    if (data.user.role !== 'Admin') {
+      errEl.textContent = 'This account is not an Admin.';
+      return;
+    }
+    token = data.accessToken;
+    currentUser = data.user;
+    sessionStorage.setItem('apiBase', apiBase);
+    sessionStorage.setItem('accessToken', token);
+    sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
+    enterApp();
+  } catch (e) {
+    errEl.textContent = e.message;
+  }
+}
+
+function logout() {
+  token = '';
+  currentUser = null;
+  sessionStorage.removeItem('accessToken');
+  sessionStorage.removeItem('currentUser');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'block';
+}
+
+function enterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('whoami').textContent = currentUser.fullName + ' (' + currentUser.email + ')';
+  loadUsers();
+}
+
+function showTab(name) {
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('section.tab').forEach(s => s.classList.remove('active'));
+  document.querySelector(`nav.tabs button[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'users') loadUsers();
+  if (name === 'halls') loadHalls();
+  if (name === 'bookings') loadBookings();
+}
+
+async function loadUsers() {
+  const status = document.getElementById('users-status');
+  const container = document.getElementById('users-container');
+  status.textContent = 'Loading...';
+  try {
+    const users = await api('/api/admin/users');
+    status.textContent = users.length + ' user(s)';
+    if (!users.length) { container.innerHTML = '<div class="empty">No users found.</div>'; return; }
+    container.innerHTML = `
+      <table>
+        <thead><tr><th>ID</th><th>Full Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Change Role</th></tr></thead>
+        <tbody>
+          ${users.map(u => `
+            <tr>
+              <td>${u.id}</td>
+              <td>${escapeHtml(u.fullName)}</td>
+              <td>${escapeHtml(u.email)}</td>
+              <td>${escapeHtml(u.phoneNumber || '-')}</td>
+              <td><span class="badge ${u.role}">${u.role}</span></td>
+              <td>
+                <select onchange="changeRole(${u.id}, this.value)">
+                  ${['Customer', 'HallOwner', 'Admin'].map(r => `<option value="${r}" ${r === u.role ? 'selected' : ''}>${r}</option>`).join('')}
+                </select>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    status.textContent = '';
+    container.innerHTML = `<div class="empty">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function changeRole(id, role) {
+  try {
+    await api(`/api/admin/users/${id}/role`, { method: 'PATCH', body: JSON.stringify(role) });
+    loadUsers();
+  } catch (e) {
+    alert('Failed to change role: ' + e.message);
+    loadUsers();
+  }
+}
+
+async function loadHalls() {
+  const status = document.getElementById('halls-status');
+  const container = document.getElementById('halls-container');
+  status.textContent = 'Loading...';
+  try {
+    const halls = await api('/api/admin/halls');
+    status.textContent = halls.length + ' hall(s)';
+    if (!halls.length) { container.innerHTML = '<div class="empty">No halls found.</div>'; return; }
+    container.innerHTML = `
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>City</th><th>Capacity</th><th>Price/Day</th><th>Active</th><th>Rating</th><th>Reviews</th></tr></thead>
+        <tbody>
+          ${halls.map(h => `
+            <tr>
+              <td>${h.id}</td>
+              <td>${escapeHtml(h.name)}</td>
+              <td>${escapeHtml(h.city)}</td>
+              <td>${h.capacity}</td>
+              <td>${h.pricePerDay}</td>
+              <td>${h.isActive ? '<span class="badge Confirmed">Active</span>' : '<span class="badge Cancelled">Inactive</span>'}</td>
+              <td>${h.averageRating.toFixed(1)}</td>
+              <td>${h.reviewCount}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    status.textContent = '';
+    container.innerHTML = `<div class="empty">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadBookings() {
+  const status = document.getElementById('bookings-status');
+  const container = document.getElementById('bookings-container');
+  status.textContent = 'Loading...';
+  try {
+    const bookings = await api('/api/admin/bookings');
+    status.textContent = bookings.length + ' booking(s)';
+    if (!bookings.length) { container.innerHTML = '<div class="empty">No bookings found.</div>'; return; }
+    container.innerHTML = `
+      <table>
+        <thead><tr><th>ID</th><th>Hall</th><th>Customer</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th><th>Total</th><th>Paid</th></tr></thead>
+        <tbody>
+          ${bookings.map(b => `
+            <tr>
+              <td>${b.id}</td>
+              <td>${escapeHtml(b.hallName)}</td>
+              <td>${escapeHtml(b.customerName)}</td>
+              <td>${b.eventDate}</td>
+              <td>${b.startTime}-${b.endTime}</td>
+              <td>${b.guestCount}</td>
+              <td><span class="badge ${b.status}">${b.status}</span></td>
+              <td>${b.totalAmount}</td>
+              <td>${b.amountPaid}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch (e) {
+    status.textContent = '';
+    container.innerHTML = `<div class="empty">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+if (token && currentUser) enterApp();
+</script>
+
+</body>
+</html>
