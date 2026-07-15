@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/screens/reviews/owner_reviews_screen.dart';
-import 'package:marriage_hall_app/controllers/halls/owner_halls_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/my_halls_controller.dart';
 import 'package:marriage_hall_app/widgets/owner/dashboard_home_tab.dart';
 import 'package:marriage_hall_app/screens/owner/add_edit_hall_screen.dart';
 import 'package:marriage_hall_app/screens/owner/my_halls_screen.dart';
@@ -24,26 +24,8 @@ class OwnerDashboardScreen extends ConsumerWidget {
     );
 
     if (result != null) {
-      ref.read(ownerHallsControllerProvider.notifier).addHall(result);
+      ref.invalidate(myHallsProvider);
       ref.read(ownerTabIndexProvider.notifier).state = 1;
-    }
-  }
-
-  Future<void> openEditHall(
-    BuildContext context,
-    WidgetRef ref,
-    int index,
-    Map<String, dynamic> hall,
-  ) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddEditHallScreen(initialHall: hall),
-      ),
-    );
-
-    if (result != null) {
-      ref.read(ownerHallsControllerProvider.notifier).updateHall(index, result);
     }
   }
 
@@ -57,24 +39,27 @@ class OwnerDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = ref.watch(ownerTabIndexProvider);
-    final halls = ref.watch(ownerHallsControllerProvider);
+    final hallsAsync = ref.watch(myHallsProvider);
 
     void goToTab(int index) =>
         ref.read(ownerTabIndexProvider.notifier).state = index;
 
+    Future<void> refreshHalls() async {
+      ref.invalidate(myHallsProvider);
+      await ref.read(myHallsProvider.future);
+    }
+
     final tabs = [
       DashboardHomeTab(
-        totalHalls: halls.length,
+        totalHalls: hallsAsync.asData?.value.length ?? 0,
         onAddHall: () => openAddHall(context, ref),
         onNavigateToTab: goToTab,
         onOpenReviews: () => openReviews(context),
       ),
       MyHallsScreen(
-        halls: halls,
+        hallsAsync: hallsAsync,
         onAddHall: () => openAddHall(context, ref),
-        onEditHall: (index) => openEditHall(context, ref, index, halls[index]),
-        onDeleteHall: (index) =>
-            ref.read(ownerHallsControllerProvider.notifier).deleteHall(index),
+        onRefresh: refreshHalls,
       ),
       const OwnerBookingsScreen(),
       const OwnerProfileMenuScreen(),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
+import 'package:marriage_hall_app/widgets/shared/network_image_box.dart';
 
 final sliderPageIndexProvider = StateProvider.autoDispose.family<int, String>(
   (ref, sliderId) => 0,
@@ -36,15 +37,17 @@ class HallImageSlider extends ConsumerWidget {
         SizedBox(
           height: 360,
           width: double.infinity,
-          child: PageView.builder(
-            itemCount: imagePaths.length,
-            onPageChanged: (index) {
-              ref.read(indexProvider.notifier).state = index;
-            },
-            itemBuilder: (context, index) {
-              return Image.asset(imagePaths[index], fit: BoxFit.cover);
-            },
-          ),
+          child: imagePaths.isEmpty
+              ? const NetworkImageBox(url: null)
+              : PageView.builder(
+                  itemCount: imagePaths.length,
+                  onPageChanged: (index) {
+                    ref.read(indexProvider.notifier).state = index;
+                  },
+                  itemBuilder: (context, index) {
+                    return NetworkImageBox(url: imagePaths[index]);
+                  },
+                ),
         ),
 
         Positioned.fill(

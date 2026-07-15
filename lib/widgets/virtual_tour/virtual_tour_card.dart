@@ -3,25 +3,24 @@ import 'package:flutter/material.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/screens/virtual_tour/virtual_tour_screen.dart';
+import 'package:marriage_hall_app/widgets/shared/network_image_box.dart';
 
 class VirtualTourCard extends StatelessWidget {
   final String hallName;
-  final String panoramaImage;
+  final String tourUrl;
 
   const VirtualTourCard({
     super.key,
     required this.hallName,
-    required this.panoramaImage,
+    required this.tourUrl,
   });
 
   void openTour(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => VirtualTourScreen(
-          hallName: hallName,
-          panoramaImage: panoramaImage,
-        ),
+        builder: (context) =>
+            VirtualTourScreen(hallName: hallName, tourUrl: tourUrl),
       ),
     );
   }
@@ -68,11 +67,10 @@ class VirtualTourCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.asset(
-                    panoramaImage,
+                  NetworkImageBox(
+                    url: tourUrl,
                     width: double.infinity,
                     height: 160,
-                    fit: BoxFit.cover,
                   ),
                   Container(
                     width: double.infinity,

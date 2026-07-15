@@ -4,6 +4,9 @@ import 'package:marriage_hall_app/screens/booking/booking_screen.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/controllers/favorites/favorites_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/hall_detail_controller.dart';
+import 'package:marriage_hall_app/models/halls/hall.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
 import 'package:marriage_hall_app/widgets/reviews/reviews_summary_section.dart';
 import 'package:marriage_hall_app/widgets/virtual_tour/virtual_tour_card.dart';
 import 'package:marriage_hall_app/widgets/halls/about_section.dart';
@@ -14,38 +17,73 @@ import 'package:marriage_hall_app/widgets/halls/hall_info_section.dart';
 import 'package:marriage_hall_app/screens/halls/hall_gallery_screen.dart';
 
 class HallDetailScreen extends ConsumerWidget {
-  final Map<String, dynamic> hall;
+  final int hallId;
 
-  const HallDetailScreen({super.key, required this.hall});
+  const HallDetailScreen({super.key, required this.hallId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final String hallId = hall['id'];
+    final hallAsync = ref.watch(hallDetailProvider(hallId));
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: hallAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text('Could not load this hall: ${error.toString()}'),
+          ),
+        ),
+        data: (hall) => _HallDetailBody(hall: hall),
+      ),
+    );
+  }
+}
+
+class _HallDetailBody extends ConsumerWidget {
+  final Hall hall;
+
+  const _HallDetailBody({required this.hall});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hallIdString = hall.id.toString();
     final isFavourite = ref.watch(
-      favoritesControllerProvider.select((s) => s.hallIds.contains(hallId)),
+      favoritesControllerProvider.select((s) => s.hallIds.contains(hallIdString)),
     );
-    final List<String> galleryImages = List<String>.from(
-      (hall['images'] as List?) ?? [hall['imagePath']],
-    );
-    final List<String> sliderImages = galleryImages.take(3).toList();
+    final imageUrls = hall.images.map((i) => i.imageUrl).toList();
+    final sliderImages = imageUrls.take(3).toList();
 
     return Scaffold(
       backgroundColor: AppColors.background,
 
       bottomNavigationBar: BookNowButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => BookingScreen(hall: hall)),
-          );
-        },
+        onPressed: hall.isActive
+            ? () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BookingScreen(hall: hall),
+                  ),
+                );
+              }
+            : () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'This hall is not currently accepting bookings.',
+                    ),
+                  ),
+                );
+              },
       ),
 
       body: SingleChildScrollView(
         child: Column(
           children: [
             HallImageSlider(
-              sliderId: 'hall_$hallId',
+              sliderId: 'hall_${hall.id}',
               imagePaths: sliderImages,
               onBackTap: () {
                 Navigator.pop(context);
@@ -53,33 +91,35 @@ class HallDetailScreen extends ConsumerWidget {
               isFavourite: isFavourite,
               onFavouriteTap: () => ref
                   .read(favoritesControllerProvider.notifier)
-                  .toggleHall(hallId),
-              onGalleryTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HallGalleryScreen(
-                      hallName: hall['hallName'],
-                      images: galleryImages,
-                    ),
-                  ),
-                );
-              },
+                  .toggleHall(hallIdString),
+              onGalleryTap: imageUrls.isEmpty
+                  ? null
+                  : () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => HallGalleryScreen(
+                            hallName: hall.name,
+                            images: imageUrls,
+                          ),
+                        ),
+                      );
+                    },
             ),
 
-            if ((hall['virtualTourImage'] as String?)?.isNotEmpty == true)
+            if (hall.virtualTours.isNotEmpty)
               VirtualTourCard(
-                hallName: hall['hallName'],
-                panoramaImage: hall['virtualTourImage'],
+                hallName: hall.name,
+                tourUrl: hall.virtualTours.first.tourUrl,
               ),
 
             HallInfoSection(
-              hallName: hall['hallName'],
-              location: hall['location'],
-              rating: hall['rating'],
-              reviews: hall['reviews'],
-              capacity: hall['capacity'],
-              price: hall['price'],
+              hallName: hall.name,
+              location: '${hall.address}, ${hall.city}',
+              rating: hall.averageRating,
+              reviews: hall.reviewCount,
+              capacity: 'Up to ${hall.capacity} Guests',
+              price: formatPkr(hall.pricePerDay),
             ),
 
             const AmenitiesSection(
@@ -93,19 +133,18 @@ class HallDetailScreen extends ConsumerWidget {
               ],
             ),
 
-            const AboutSection(
-              description:
-                  'A spacious and elegant marriage hall with beautiful decoration, comfortable seating, air conditioning, catering service, parking facility, and professional staff. Best for weddings, engagements, receptions, and family events.',
+            AboutSection(
+              description: hall.description.isEmpty
+                  ? 'No description provided for this hall yet.'
+                  : hall.description,
             ),
 
             ReviewsSummarySection(
-              hallName: hall['hallName'],
-              rating: hall['rating'] ?? 0,
-              reviewsCount: hall['reviews'] ?? 0,
-              ratingBreakdown: Map<int, int>.from(
-                (hall['ratingBreakdown'] as Map?) ?? const {},
-              ),
-              canWriteReview: hall['canWriteReview'] == true,
+              hallName: hall.name,
+              rating: hall.averageRating,
+              reviewsCount: hall.reviewCount,
+              ratingBreakdown: const {},
+              canWriteReview: false,
             ),
 
             const SizedBox(height: 20),

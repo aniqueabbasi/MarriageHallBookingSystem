@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/widgets/shared/network_image_box.dart';
 
 class BookingSummaryCard extends StatelessWidget {
-  final String imagePath;
+  final String? imageUrl;
   final String hallName;
   final String location;
   final String price;
 
   const BookingSummaryCard({
     super.key,
-    required this.imagePath,
+    required this.imageUrl,
     required this.hallName,
     required this.location,
     required this.price,
@@ -36,12 +37,7 @@ class BookingSummaryCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-            child: Image.asset(
-              imagePath,
-              width: 90,
-              height: 90,
-              fit: BoxFit.cover,
-            ),
+            child: NetworkImageBox(url: imageUrl, width: 90, height: 90),
           ),
           const SizedBox(width: AppSizes.md),
           Expanded(

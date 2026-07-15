@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/widgets/shared/network_image_box.dart';
 
 class HallGalleryScreen extends StatelessWidget {
   final String hallName;
@@ -48,7 +49,7 @@ class HallGalleryScreen extends StatelessWidget {
             },
             child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-              child: Image.asset(images[index], fit: BoxFit.cover),
+              child: NetworkImageBox(url: images[index]),
             ),
           );
         },
@@ -107,7 +108,10 @@ class _GalleryViewerScreenState extends ConsumerState<_GalleryViewerScreen> {
                   ref.read(indexProvider.notifier).state = index,
               itemBuilder: (context, index) => InteractiveViewer(
                 child: Center(
-                  child: Image.asset(widget.images[index], fit: BoxFit.contain),
+                  child: NetworkImageBox(
+                    url: widget.images[index],
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),

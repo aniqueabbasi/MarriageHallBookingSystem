@@ -5,12 +5,12 @@ import 'package:marriage_hall_app/resources/app_sizes.dart';
 
 class VirtualTourScreen extends StatelessWidget {
   final String hallName;
-  final String panoramaImage;
+  final String tourUrl;
 
   const VirtualTourScreen({
     super.key,
     required this.hallName,
-    required this.panoramaImage,
+    required this.tourUrl,
   });
 
   @override
@@ -20,7 +20,7 @@ class VirtualTourScreen extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: PanoramaViewer(child: Image.asset(panoramaImage)),
+            child: PanoramaViewer(child: Image.network(tourUrl)),
           ),
           Positioned(
             top: 0,

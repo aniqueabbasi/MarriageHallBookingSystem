@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:marriage_hall_app/widgets/booking/food_selection_section.dart';
-import 'package:marriage_hall_app/widgets/booking/guest_counter.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/controllers/booking/booking_form_controller.dart';
-import 'package:marriage_hall_app/screens/booking/booking_confirmation_screen.dart';
-import 'package:marriage_hall_app/screens/booking/booking_summary_card.dart';
-import 'package:marriage_hall_app/widgets/booking/advance_payment_breakdown.dart';
-import 'package:marriage_hall_app/widgets/booking/booking_price_section.dart';
-import 'package:marriage_hall_app/widgets/booking/confirm_booking_button.dart';
-import 'package:marriage_hall_app/widgets/booking/date_picker_field.dart';
-import 'package:marriage_hall_app/widgets/booking/phone_textfield.dart';
-import 'package:marriage_hall_app/widgets/booking/special_request_field.dart';
+import 'package:marriage_hall_app/controllers/booking/booking_submit_controller.dart';
+import 'package:marriage_hall_app/models/halls/extra_service.dart';
+import 'package:marriage_hall_app/models/halls/food_package.dart';
+import 'package:marriage_hall_app/models/halls/hall.dart';
+import 'package:marriage_hall_app/models/booking/create_booking_request.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
+import 'package:marriage_hall_app/widgets/booking/food_selection_section.dart';
+import 'package:marriage_hall_app/widgets/booking/guest_counter.dart';
+import 'package:marriage_hall_app/widgets/booking/time_range_field.dart';
+import 'booking_confirmation_screen.dart';
+import 'booking_summary_card.dart';
+import '../../widgets/booking/booking_price_section.dart';
+import '../../widgets/booking/confirm_booking_button.dart';
+import '../../widgets/booking/date_picker_field.dart';
+import '../../widgets/booking/phone_textfield.dart';
+import '../../widgets/booking/special_request_field.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
-  final Map<String, dynamic> hall;
+  final Hall hall;
 
   const BookingScreen({super.key, required this.hall});
 
@@ -29,20 +35,6 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   final TextEditingController specialRequestController =
       TextEditingController();
 
-  final Map<String, int> packagePrices = {
-    "Standard Package": 1200,
-    "Premium Package": 1800,
-    "Luxury Package": 2500,
-  };
-
-  final Map<String, int> extraPrices = {
-    "Cold Drinks": 15000,
-    "Raita + Salad": 10000,
-    "BBQ": 40000,
-    "Extra Sweet Dish": 20000,
-    "Mineral Water": 12000,
-  };
-
   @override
   void dispose() {
     phoneController.dispose();
@@ -50,74 +42,128 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     super.dispose();
   }
 
-  int getHallBasePrice() {
-    final priceText = widget.hall['price'].toString();
-    final onlyNumbers = priceText.replaceAll(RegExp(r'[^0-9]'), '');
-    return int.tryParse(onlyNumbers) ?? 0;
+  FoodPackage? _selectedPackage(BookingFormState formState) {
+    if (formState.foodPackageId == null) return null;
+    final matches = widget.hall.foodPackages.where(
+      (p) => p.id == formState.foodPackageId,
+    );
+    return matches.isEmpty ? null : matches.first;
   }
 
-  int foodPrice(BookingFormState formState) {
-    return formState.guests * packagePrices[formState.selectedPackage]!;
+  List<ExtraService> _selectedExtras(BookingFormState formState) {
+    return widget.hall.extraServices
+        .where((e) => formState.extraServiceIds.contains(e.id))
+        .toList();
   }
 
-  int extrasPrice(BookingFormState formState) {
-    int total = 0;
-
-    for (var extra in formState.selectedExtras) {
-      total += extraPrices[extra] ?? 0;
-    }
-
-    return total;
+  num _estimatedTotal(BookingFormState formState) {
+    final package = _selectedPackage(formState);
+    final foodTotal = (package?.pricePerHead ?? 0) * formState.guests;
+    final extrasTotal = _selectedExtras(
+      formState,
+    ).fold<num>(0, (sum, e) => sum + e.price);
+    return widget.hall.pricePerDay + foodTotal + extrasTotal;
   }
 
-  int totalPrice(BookingFormState formState) {
-    return getHallBasePrice() + foodPrice(formState) + extrasPrice(formState);
-  }
+  Future<void> confirmBooking(BookingFormState formState) async {
+    final hall = widget.hall;
 
-  int get advancePercentage {
-    return int.tryParse('${widget.hall['advancePercentage'] ?? 20}') ?? 20;
-  }
-
-  int advanceAmount(BookingFormState formState) {
-    return (totalPrice(formState) * advancePercentage / 100).round();
-  }
-
-  int remainingBalance(BookingFormState formState) {
-    return totalPrice(formState) - advanceAmount(formState);
-  }
-
-  void confirmBooking(BookingFormState formState) {
-    if (formState.bookingDate == null) {
+    if (!hall.isActive) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a booking date")),
+        const SnackBar(
+          content: Text('This hall is not currently accepting bookings.'),
+        ),
       );
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => BookingConfirmationScreen(
-          hallName: widget.hall['hallName'],
-          bookingDate: formState.bookingDate!,
-          guests: formState.guests,
-          selectedPackage: formState.selectedPackage,
-          selectedExtras: formState.selectedExtras,
-          totalPrice: totalPrice(formState),
-          advancePercentage: advancePercentage,
-          advanceAmount: advanceAmount(formState),
-          remainingBalance: remainingBalance(formState),
+    if (formState.eventDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select an event date")),
+      );
+      return;
+    }
+
+    if (formState.startTime == null || formState.endTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a start and end time")),
+      );
+      return;
+    }
+
+    if (formState.foodPackageId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a food package")),
+      );
+      return;
+    }
+
+    if (formState.guests > hall.capacity) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Guest count can't exceed this hall's capacity of ${hall.capacity}.",
+          ),
         ),
-      ),
+      );
+      return;
+    }
+
+    final estimatedTotal = _estimatedTotal(formState);
+
+    final request = CreateBookingRequest(
+      hallId: hall.id,
+      foodPackageId: formState.foodPackageId!,
+      eventDate: formState.eventDate!,
+      startTime: formState.startTime!,
+      endTime: formState.endTime!,
+      guestCount: formState.guests,
+      extraServiceIds: formState.extraServiceIds.toList(),
     );
+
+    final booking = await ref
+        .read(bookingSubmitControllerProvider(hall.id).notifier)
+        .submit(request);
+
+    if (!mounted) return;
+
+    if (booking != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BookingConfirmationScreen(
+            booking: booking,
+            clientEstimatedTotal: estimatedTotal,
+          ),
+        ),
+      );
+    } else {
+      final message = ref
+          .read(bookingSubmitControllerProvider(hall.id))
+          .errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not create booking")),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String hallId = widget.hall['id'];
-    final formProvider = bookingFormControllerProvider(hallId);
+    final hall = widget.hall;
+    final formProvider = bookingFormControllerProvider(hall.id);
     final formState = ref.watch(formProvider);
     final formNotifier = ref.read(formProvider.notifier);
+    final isSubmitting = ref.watch(
+      bookingSubmitControllerProvider(hall.id).select((s) => s.isLoading),
+    );
+
+    final selectedPackage = _selectedPackage(formState);
+    final foodPrice = (selectedPackage?.pricePerHead ?? 0) * formState.guests;
+    final extrasPrice = _selectedExtras(
+      formState,
+    ).fold<num>(0, (sum, e) => sum + e.price);
+    final totalPrice = hall.pricePerDay + foodPrice + extrasPrice;
+    final exceedsCapacity = formState.guests > hall.capacity;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -136,21 +182,47 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             BookingSummaryCard(
-              imagePath: widget.hall['imagePath'],
-              hallName: widget.hall['hallName'],
-              location: widget.hall['location'],
-              price: widget.hall['price'],
+              imageUrl: hall.primaryImageUrl,
+              hallName: hall.name,
+              location: '${hall.address}, ${hall.city}',
+              price: formatPkr(hall.pricePerDay),
             ),
+
+            if (!hall.isActive) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSizes.md),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                ),
+                child: const Text(
+                  "This hall isn't currently accepting bookings.",
+                  style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 24),
 
-            _SectionTitle(icon: Icons.event, label: "Booking Date"),
-
+            _SectionTitle(icon: Icons.event, label: "Event Date"),
             const SizedBox(height: 10),
-
             DatePickerField(
-              selectedDate: formState.bookingDate,
-              onDateChanged: (date) => formNotifier.setBookingDate(date),
+              selectedDate: formState.eventDate,
+              onDateChanged: (date) => formNotifier.setEventDate(date),
+            ),
+
+            const SizedBox(height: 16),
+
+            _SectionTitle(icon: Icons.schedule, label: "Event Time"),
+            const SizedBox(height: 10),
+            TimeRangeField(
+              startTime: formState.startTime,
+              endTime: formState.endTime,
+              onStartTimeChanged: (time) => formNotifier.setStartTime(time),
+              onEndTimeChanged: (time) => formNotifier.setEndTime(time),
             ),
 
             const SizedBox(height: 24),
@@ -160,36 +232,43 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               onIncrement: () => formNotifier.setGuests(formState.guests + 50),
               onDecrement: () => formNotifier.setGuests(formState.guests - 50),
             ),
+            if (exceedsCapacity) ...[
+              const SizedBox(height: 6),
+              Text(
+                "This hall's capacity is ${hall.capacity} guests.",
+                style: const TextStyle(color: AppColors.error, fontSize: 12),
+              ),
+            ],
 
             const SizedBox(height: 24),
 
             FoodSelectionSection(
-              selectedPackage: formState.selectedPackage,
-              selectedExtras: formState.selectedExtras,
-              onPackageChanged: (value) {
-                if (value != null) formNotifier.setPackage(value);
-              },
-              onExtraChanged: (extra, isSelected) {
-                formNotifier.setExtraSelected(extra, isSelected);
-              },
+              foodPackages: hall.foodPackages,
+              extraServices: hall.extraServices,
+              selectedFoodPackageId: formState.foodPackageId,
+              selectedExtraServiceIds: formState.extraServiceIds,
+              onPackageChanged: (id) => formNotifier.setFoodPackage(id),
+              onExtraChanged: (id, selected) =>
+                  formNotifier.toggleExtraService(id, selected),
             ),
 
             const SizedBox(height: 24),
 
             BookingPriceSection(
-              hallBasePrice: getHallBasePrice(),
-              foodPrice: foodPrice(formState),
-              extrasPrice: extrasPrice(formState),
-              totalPrice: totalPrice(formState),
+              hallBasePrice: hall.pricePerDay,
+              foodPrice: foodPrice,
+              extrasPrice: extrasPrice,
+              totalPrice: totalPrice,
             ),
 
             const SizedBox(height: 16),
 
-            AdvancePaymentBreakdown(
-              totalPrice: totalPrice(formState),
-              advancePercentage: advancePercentage,
-              advanceAmount: advanceAmount(formState),
-              remainingBalance: remainingBalance(formState),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              child: Text(
+                "This total is an estimate — the confirmed amount is calculated by the server.",
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
             ),
 
             const SizedBox(height: 24),
@@ -210,7 +289,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
             const SizedBox(height: 30),
 
-            ConfirmBookingButton(onPressed: () => confirmBooking(formState)),
+            ConfirmBookingButton(
+              label: isSubmitting ? "Confirming..." : "Confirm Booking",
+              onPressed: isSubmitting ? null : () => confirmBooking(formState),
+            ),
 
             const SizedBox(height: 30),
           ],

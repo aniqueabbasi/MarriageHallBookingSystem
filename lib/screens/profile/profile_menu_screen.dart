@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/controllers/auth/auth_controller.dart';
 import 'package:marriage_hall_app/controllers/profile/user_dummy_data.dart';
 import 'package:marriage_hall_app/widgets/profile/profile_menu_tile.dart';
 import 'package:marriage_hall_app/screens/profile/help_support_screen.dart';
@@ -21,7 +22,7 @@ class ProfileMenuScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> confirmLogout(BuildContext context) async {
+  Future<void> confirmLogout(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -44,7 +45,8 @@ class ProfileMenuScreen extends ConsumerWidget {
     );
 
     if (confirmed == true && context.mounted) {
-      context.go('/roles');
+      await ref.read(authControllerProvider.notifier).logout();
+      if (context.mounted) context.go('/roles');
     }
   }
 
@@ -158,7 +160,7 @@ class ProfileMenuScreen extends ConsumerWidget {
                       icon: Icons.logout,
                       label: "Log Out",
                       isDestructive: true,
-                      onTap: () => confirmLogout(context),
+                      onTap: () => confirmLogout(context, ref),
                     ),
                   ],
                 ),

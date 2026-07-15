@@ -5,8 +5,10 @@ import 'package:marriage_hall_app/screens/halls/hall_detail_screen.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/resources/app_strings.dart';
+import 'package:marriage_hall_app/models/halls/hall_summary.dart';
 import 'package:marriage_hall_app/screens/photographers/photographer_profile_screen.dart';
 import 'package:marriage_hall_app/widgets/photographers/photographer_card.dart';
+import 'package:marriage_hall_app/controllers/halls/halls_list_controller.dart';
 import 'package:marriage_hall_app/controllers/halls/home_filter_controller.dart';
 import 'package:marriage_hall_app/widgets/halls/category_toggle.dart';
 import 'package:marriage_hall_app/widgets/halls/city_filter_sheet.dart';
@@ -67,7 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final filter = ref.watch(homeFilterControllerProvider);
-    final filteredHalls = ref.watch(filteredHallsProvider);
+    final filteredHallsAsync = ref.watch(filteredHallsProvider);
     final filteredPhotographers = ref.watch(filteredPhotographersProvider);
     final isHallCategory = filter.selectedCategory == AppStrings.hallCategory;
 
@@ -148,7 +150,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: AppSizes.md),
                   Expanded(
                     child: isHallCategory
-                        ? _buildHallList(filteredHalls)
+                        ? _buildHallList(filteredHallsAsync)
                         : _buildPhotographerList(filteredPhotographers),
                   ),
                 ],
@@ -160,35 +162,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildHallList(List<Map<String, dynamic>> filteredHalls) {
-    if (filteredHalls.isEmpty) {
-      return const Center(child: Text('No halls found'));
-    }
+  Widget _buildHallList(AsyncValue<List<HallSummary>> filteredHallsAsync) {
+    return filteredHallsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Text('Could not load halls: ${error.toString()}'),
+      ),
+      data: (filteredHalls) {
+        if (filteredHalls.isEmpty) {
+          return const Center(child: Text('No halls found'));
+        }
 
-    return ListView(
-      children: filteredHalls.map((hall) {
-        final isFavourite = widget.favoriteHallIds.contains(hall['id']);
+        return ListView(
+          children: filteredHalls.map((hall) {
+            final hallIdString = hall.id.toString();
+            final isFavourite = widget.favoriteHallIds.contains(hallIdString);
 
-        return HallCard(
-          imagePath: hall['imagePath'],
-          hallName: hall['hallName'],
-          location: hall['location'],
-          price: hall['price'],
-          capacity: hall['capacity'],
-          rating: hall['rating'],
-          reviews: hall['reviews'],
-          isFavourite: isFavourite,
-          onFavouriteTap: () => widget.onToggleHallFavorite(hall['id']),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HallDetailScreen(hall: hall),
-              ),
+            return HallCard(
+              imageUrl: hall.primaryImageUrl,
+              hallName: hall.name,
+              location: hall.city,
+              pricePerDay: hall.pricePerDay,
+              capacity: hall.capacity,
+              rating: hall.averageRating,
+              reviews: hall.reviewCount,
+              isFavourite: isFavourite,
+              onFavouriteTap: () =>
+                  widget.onToggleHallFavorite(hallIdString),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HallDetailScreen(hallId: hall.id),
+                  ),
+                );
+              },
             );
-          },
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 

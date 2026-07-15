@@ -4,7 +4,7 @@ extension UserRoleX on UserRole {
   String get label => this == UserRole.client ? 'Client' : 'Hall Owner';
 
   /// Role value expected by the backend's `/api/auth/register` payload.
-  String get apiRole => this == UserRole.client ? 'Customer' : 'Owner';
+  String get apiRole => this == UserRole.client ? 'Customer' : 'HallOwner';
 
   /// Reverse of [apiRole] — parses the `role` string the backend returns
   /// (e.g. in the login response's `user` object) back into a [UserRole].

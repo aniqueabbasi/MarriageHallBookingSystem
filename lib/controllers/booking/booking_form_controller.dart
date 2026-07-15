@@ -1,29 +1,38 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class BookingFormState {
   final int guests;
-  final DateTime? bookingDate;
-  final String selectedPackage;
-  final List<String> selectedExtras;
+  final DateTime? eventDate;
+  final TimeOfDay? startTime;
+  final TimeOfDay? endTime;
+  final int? foodPackageId;
+  final Set<int> extraServiceIds;
 
   const BookingFormState({
     this.guests = 100,
-    this.bookingDate,
-    this.selectedPackage = "Standard Package",
-    this.selectedExtras = const [],
+    this.eventDate,
+    this.startTime,
+    this.endTime,
+    this.foodPackageId,
+    this.extraServiceIds = const {},
   });
 
   BookingFormState copyWith({
     int? guests,
-    DateTime? bookingDate,
-    String? selectedPackage,
-    List<String>? selectedExtras,
+    DateTime? eventDate,
+    TimeOfDay? startTime,
+    TimeOfDay? endTime,
+    int? foodPackageId,
+    Set<int>? extraServiceIds,
   }) {
     return BookingFormState(
       guests: guests ?? this.guests,
-      bookingDate: bookingDate ?? this.bookingDate,
-      selectedPackage: selectedPackage ?? this.selectedPackage,
-      selectedExtras: selectedExtras ?? this.selectedExtras,
+      eventDate: eventDate ?? this.eventDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      foodPackageId: foodPackageId ?? this.foodPackageId,
+      extraServiceIds: extraServiceIds ?? this.extraServiceIds,
     );
   }
 }
@@ -36,25 +45,30 @@ class BookingFormController extends Notifier<BookingFormState> {
     if (value >= 50) state = state.copyWith(guests: value);
   }
 
-  void setBookingDate(DateTime date) =>
-      state = state.copyWith(bookingDate: date);
+  void setEventDate(DateTime date) =>
+      state = state.copyWith(eventDate: date);
 
-  void setPackage(String package) =>
-      state = state.copyWith(selectedPackage: package);
+  void setStartTime(TimeOfDay time) =>
+      state = state.copyWith(startTime: time);
 
-  void setExtraSelected(String extra, bool isSelected) {
-    final updated = [...state.selectedExtras];
+  void setEndTime(TimeOfDay time) => state = state.copyWith(endTime: time);
+
+  void setFoodPackage(int foodPackageId) =>
+      state = state.copyWith(foodPackageId: foodPackageId);
+
+  void toggleExtraService(int extraServiceId, bool isSelected) {
+    final updated = {...state.extraServiceIds};
     if (isSelected) {
-      if (!updated.contains(extra)) updated.add(extra);
+      updated.add(extraServiceId);
     } else {
-      updated.remove(extra);
+      updated.remove(extraServiceId);
     }
-    state = state.copyWith(selectedExtras: updated);
+    state = state.copyWith(extraServiceIds: updated);
   }
 }
 
 /// Keyed by hall id so booking a different hall always starts fresh.
 final bookingFormControllerProvider = NotifierProvider.autoDispose
-    .family<BookingFormController, BookingFormState, String>(
+    .family<BookingFormController, BookingFormState, int>(
       (hallId) => BookingFormController(),
     );

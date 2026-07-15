@@ -5,8 +5,6 @@ import 'package:marriage_hall_app/models/auth/login_request.dart';
 import 'package:marriage_hall_app/models/auth/login_response.dart';
 import 'package:marriage_hall_app/models/auth/register_request.dart';
 
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());
-
 final authClientProvider = Provider<AuthClient>(
   (ref) => AuthClient(ref.watch(apiClientProvider)),
 );

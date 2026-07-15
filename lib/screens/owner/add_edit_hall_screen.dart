@@ -7,7 +7,9 @@ import 'package:marriage_hall_app/constants/hall_status.dart';
 import 'package:marriage_hall_app/constants/lists.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
 import 'package:marriage_hall_app/screens/virtual_tour/virtual_tour_screen.dart';
+import 'package:marriage_hall_app/controllers/halls/create_hall_controller.dart';
 import 'package:marriage_hall_app/controllers/halls/hall_form_controller.dart';
+import 'package:marriage_hall_app/models/halls/create_hall_request.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/add_food_package_dialog.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/availability_calendar_preview.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/day_selector.dart';
@@ -208,13 +210,13 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
           hallName: nameController.text.trim().isEmpty
               ? "Your Hall"
               : nameController.text.trim(),
-          panoramaImage: panoramaImage!,
+          tourUrl: panoramaImage!,
         ),
       ),
     );
   }
 
-  void saveHall() {
+  Future<void> saveHall() async {
     final formState = ref.read(hallFormControllerProvider(_formKey));
 
     if (nameController.text.trim().isEmpty) {
@@ -229,6 +231,31 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
         const SnackBar(content: Text("Select at least one time slot")),
       );
       return;
+    }
+
+    final capacity = int.tryParse(capacityController.text.trim());
+    final pricePerDay = double.tryParse(priceController.text.trim());
+
+    if (!widget.isEditMode) {
+      // Only the create flow is wired to a real endpoint (no PUT was given
+      // yet for edits), so these need to be genuinely valid numbers here.
+      if (capacity == null || capacity <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Enter a valid guest capacity (a number)"),
+          ),
+        );
+        return;
+      }
+
+      if (pricePerDay == null || pricePerDay <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Enter a valid base hall price (a number)"),
+          ),
+        );
+        return;
+      }
     }
 
     final extraServices = List.generate(formState.extraServiceNames.length, (
@@ -280,12 +307,54 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
       'email': emailController.text.trim(),
     };
 
+    if (!widget.isEditMode) {
+      // Real backend call — only name/description/address/city/capacity/
+      // pricePerDay exist on this endpoint. Everything else above (food
+      // packages, images, parking, AC, advance %, ...) has no matching API
+      // yet, so it stays local-only on this dummy record for now.
+      final hall = await ref
+          .read(createHallControllerProvider.notifier)
+          .submit(
+            CreateHallRequest(
+              name: nameController.text.trim(),
+              description: descriptionController.text.trim(),
+              address: addressController.text.trim(),
+              city: formState.selectedCity,
+              capacity: capacity!,
+              pricePerDay: pricePerDay!,
+            ),
+          );
+
+      if (!mounted) return;
+
+      if (hall == null) {
+        final message = ref.read(createHallControllerProvider).errorMessage;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message ?? "Could not create hall")),
+        );
+        return;
+      }
+
+      hallData['hallId'] = hall.id;
+      hallData['hallName'] = hall.name;
+      hallData['description'] = hall.description;
+      hallData['city'] = hall.city;
+      hallData['address'] = hall.address;
+      hallData['capacity'] = '${hall.capacity}';
+      hallData['price'] = hall.pricePerDay.toStringAsFixed(0);
+      hallData['isAvailable'] = hall.isActive;
+    }
+
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           _isResubmission
               ? "Hall resubmitted for review!"
-              : "Hall submitted! It will appear to clients once approved.",
+              : widget.isEditMode
+              ? "Hall updated!"
+              : "Hall created!",
         ),
       ),
     );
@@ -298,6 +367,9 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
     const cities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi'];
     final formState = ref.watch(hallFormControllerProvider(_formKey));
     final formNotifier = ref.read(hallFormControllerProvider(_formKey).notifier);
+    final isSaving = ref.watch(
+      createHallControllerProvider.select((s) => s.isLoading),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -449,9 +521,10 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
                 children: [
                   LabeledTextField(
                     controller: capacityController,
-                    label: "Guest Capacity",
+                    label: "Max Guest Capacity",
                     icon: Icons.groups_outlined,
-                    hint: "e.g. 500 - 800 Guests",
+                    hint: "e.g. 500",
+                    keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: AppSizes.md),
                   LabeledTextField(
@@ -743,9 +816,11 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
 
             const SizedBox(height: AppSizes.sm),
             GradientButton(
-              label: _isResubmission ? "Resubmit for Approval" : "Save Hall",
+              label: isSaving
+                  ? "Saving..."
+                  : (_isResubmission ? "Resubmit for Approval" : "Save Hall"),
               icon: Icons.check_circle_outline,
-              onPressed: saveHall,
+              onPressed: isSaving ? null : saveHall,
             ),
             const SizedBox(height: AppSizes.lg),
           ],

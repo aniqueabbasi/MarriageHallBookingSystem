@@ -2,45 +2,42 @@ import 'package:flutter/material.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
-import 'package:marriage_hall_app/constants/hall_status.dart';
+import 'package:marriage_hall_app/models/halls/hall_summary.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
+import 'package:marriage_hall_app/widgets/shared/network_image_box.dart';
 
 class OwnerHallCard extends StatelessWidget {
-  final Map<String, dynamic> hall;
-  final VoidCallback onTap;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final HallSummary hall;
   final VoidCallback onViewReviews;
 
   const OwnerHallCard({
     super.key,
     required this.hall,
-    required this.onTap,
-    required this.onEdit,
-    required this.onDelete,
     required this.onViewReviews,
   });
 
+  void _showComingSoon(BuildContext context, String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("$feature isn't available yet.")),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final String status = hall['status'] ?? HallStatus.pending;
-    final bool isRejected = status == HallStatus.rejected;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        margin: const EdgeInsets.only(bottom: AppSizes.lg),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                Image.asset(
-                  hall['imagePath'],
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSizes.lg),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              NetworkImageBox(
+                url: hall.primaryImageUrl,
+                height: 160,
+                width: double.infinity,
+              ),
+              if (!hall.isActive)
                 Positioned(
                   top: 12,
                   left: 12,
@@ -50,12 +47,12 @@ class OwnerHallCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: status.hallStatusColor,
+                      color: AppColors.textSecondary,
                       borderRadius: BorderRadius.circular(AppSizes.radiusMd),
                     ),
-                    child: Text(
-                      status.hallStatusLabel,
-                      style: const TextStyle(
+                    child: const Text(
+                      "Inactive",
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -63,160 +60,125 @@ class OwnerHallCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSizes.md),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hall['hallName'],
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSizes.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  hall.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.location_on,
+                      size: 16,
+                      color: AppColors.primary,
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        size: 16,
-                        color: AppColors.primary,
+                    const SizedBox(width: 4),
+                    Text(
+                      hall.city,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _InfoChip(
+                        icon: Icons.groups_outlined,
+                        label: "Up to ${hall.capacity} Guests",
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        hall['city'],
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _InfoChip(
-                          icon: Icons.groups_outlined,
-                          label: hall['capacity'],
-                        ),
-                      ),
-                      const SizedBox(width: AppSizes.sm),
-                      Expanded(
-                        child: _InfoChip(
-                          icon: Icons.payments_outlined,
-                          label: hall['price'],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, size: 16, color: AppColors.star),
-                      const SizedBox(width: 4),
-                      Text(
-                        ((hall['rating'] as num?) ?? 0).toStringAsFixed(1),
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "(${hall['reviews'] ?? 0} reviews)",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (isRejected && (hall['rejectionReason'] as String?)?.isNotEmpty == true) ...[
-                    const SizedBox(height: AppSizes.sm),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSizes.sm),
-                      decoration: BoxDecoration(
-                        color: AppColors.error.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                        border: Border.all(
-                          color: AppColors.error.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.error_outline,
-                            size: 16,
-                            color: AppColors.error,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              hall['rejectionReason'],
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.error,
-                              ),
-                            ),
-                          ),
-                        ],
+                    ),
+                    const SizedBox(width: AppSizes.sm),
+                    Expanded(
+                      child: _InfoChip(
+                        icon: Icons.payments_outlined,
+                        label: formatPkr(hall.pricePerDay),
                       ),
                     ),
                   ],
-                  const SizedBox(height: AppSizes.md),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: onEdit,
-                          icon: const Icon(Icons.edit_outlined, size: 16),
-                          label: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(isRejected ? "Edit & Resubmit" : "Edit"),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            foregroundColor: AppColors.primary,
-                            side: const BorderSide(color: AppColors.primary),
-                          ),
-                        ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.star, size: 16, color: AppColors.star),
+                    const SizedBox(width: 4),
+                    Text(
+                      hall.averageRating.toStringAsFixed(1),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      "(${hall.reviewCount} reviews)",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
                       ),
-                      const SizedBox(width: AppSizes.sm),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: onViewReviews,
-                          icon: const Icon(Icons.reviews_outlined, size: 16),
-                          label: const FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text("View Reviews"),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(0, 44),
-                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                            foregroundColor: AppColors.secondary,
-                            side: const BorderSide(color: AppColors.secondary),
-                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSizes.md),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showComingSoon(context, "Editing"),
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        label: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text("Edit"),
                         ),
-                      ),
-                      const SizedBox(width: AppSizes.sm),
-                      OutlinedButton(
-                        onPressed: onDelete,
                         style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(44, 44),
-                          padding: EdgeInsets.zero,
-                          foregroundColor: AppColors.error,
-                          side: const BorderSide(color: AppColors.error),
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
                         ),
-                        child: const Icon(Icons.delete_outline, size: 18),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                    const SizedBox(width: AppSizes.sm),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onViewReviews,
+                        icon: const Icon(Icons.reviews_outlined, size: 16),
+                        label: const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text("View Reviews"),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 6),
+                          foregroundColor: AppColors.secondary,
+                          side: const BorderSide(color: AppColors.secondary),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSizes.sm),
+                    OutlinedButton(
+                      onPressed: () => _showComingSoon(context, "Deleting"),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(44, 44),
+                        padding: EdgeInsets.zero,
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                      ),
+                      child: const Icon(Icons.delete_outline, size: 18),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

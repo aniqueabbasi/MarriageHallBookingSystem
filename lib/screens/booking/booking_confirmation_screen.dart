@@ -6,29 +6,23 @@ import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
 import 'package:marriage_hall_app/controllers/booking/cnic_upload_controller.dart';
+import 'package:marriage_hall_app/models/booking/booking.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
+import 'package:marriage_hall_app/widgets/booking/advance_payment_breakdown.dart';
 
 class BookingConfirmationScreen extends ConsumerStatefulWidget {
-  final String hallName;
-  final DateTime bookingDate;
-  final int guests;
-  final String selectedPackage;
-  final List<String> selectedExtras;
-  final int totalPrice;
-  final int advancePercentage;
-  final int advanceAmount;
-  final int remainingBalance;
+  final Booking booking;
+
+  /// The live total shown on the booking form, computed client-side before
+  /// submission — the server's [Booking.totalAmount] is authoritative. If
+  /// they diverge, we surface it instead of silently trusting one over the
+  /// other.
+  final num clientEstimatedTotal;
 
   const BookingConfirmationScreen({
     super.key,
-    required this.hallName,
-    required this.bookingDate,
-    required this.guests,
-    required this.selectedPackage,
-    required this.selectedExtras,
-    required this.totalPrice,
-    required this.advancePercentage,
-    required this.advanceAmount,
-    required this.remainingBalance,
+    required this.booking,
+    required this.clientEstimatedTotal,
   });
 
   @override
@@ -52,8 +46,6 @@ class _BookingConfirmationScreenState
     emailController.dispose();
     super.dispose();
   }
-
-  String formatPrice(int price) => "PKR $price";
 
   String? requiredValidator(String? value) {
     if (value == null || value.trim().isEmpty) {
@@ -113,7 +105,7 @@ class _BookingConfirmationScreenState
       SnackBar(
         content: Text(
           "Payment gateway isn't wired up in this UI-only build. "
-          "Advance of ${formatPrice(widget.advanceAmount)} would be charged here.",
+          "Advance of ${formatPkr(widget.booking.advanceAmount)} would be charged here.",
         ),
       ),
     );
@@ -122,6 +114,13 @@ class _BookingConfirmationScreenState
   @override
   Widget build(BuildContext context) {
     final cnicState = ref.watch(cnicUploadControllerProvider(_instanceId));
+    final booking = widget.booking;
+    final remainingBalance = booking.totalAmount - booking.amountPaid;
+    final advancePercentage = booking.totalAmount == 0
+        ? 0
+        : (booking.advanceAmount / booking.totalAmount) * 100;
+    final hasDiscrepancy =
+        (widget.clientEstimatedTotal - booking.totalAmount).abs() >= 1;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -140,6 +139,37 @@ class _BookingConfirmationScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (hasDiscrepancy) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(AppSizes.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
+                    border: Border.all(
+                      color: AppColors.error.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_amber_outlined, color: AppColors.error),
+                      const SizedBox(width: AppSizes.sm),
+                      Expanded(
+                        child: Text(
+                          "Heads up: the estimated total shown while booking "
+                          "(${formatPkr(widget.clientEstimatedTotal)}) doesn't "
+                          "match what the server calculated "
+                          "(${formatPkr(booking.totalAmount)}). The server "
+                          "amount below is the one that applies.",
+                          style: const TextStyle(color: AppColors.error, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSizes.md),
+              ],
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSizes.md),
@@ -160,110 +190,51 @@ class _BookingConfirmationScreenState
                     _detailRow(
                       Icons.villa_outlined,
                       "Hall Name",
-                      widget.hallName,
+                      booking.hallName,
                     ),
                     _detailRow(
                       Icons.calendar_today_outlined,
-                      "Booking Date",
-                      DateFormat("dd MMM yyyy").format(widget.bookingDate),
+                      "Event Date",
+                      DateFormat("dd MMM yyyy").format(booking.eventDate),
+                    ),
+                    _detailRow(
+                      Icons.schedule_outlined,
+                      "Event Time",
+                      "${Booking.formatTimeOfDay(booking.startTime)} - "
+                          "${Booking.formatTimeOfDay(booking.endTime)}",
                     ),
                     _detailRow(
                       Icons.groups_outlined,
                       "Number of Guests",
-                      "${widget.guests}",
+                      "${booking.guestCount}",
                     ),
                     _detailRow(
                       Icons.restaurant_menu_outlined,
                       "Food Package",
-                      widget.selectedPackage,
+                      booking.foodPackageName,
                     ),
                     _detailRow(
                       Icons.add_circle_outline,
                       "Extra Services",
-                      widget.selectedExtras.isEmpty
+                      booking.extraServiceNames.isEmpty
                           ? "None"
-                          : widget.selectedExtras.join(", "),
+                          : booking.extraServiceNames.join(", "),
+                    ),
+                    _detailRow(
+                      Icons.info_outline,
+                      "Status",
+                      booking.status,
                       isLast: true,
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: AppSizes.md),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSizes.md),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Payment Summary",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _priceRow(
-                      "Total Booking Amount",
-                      formatPrice(widget.totalPrice),
-                    ),
-                    _priceRow(
-                      "Advance Percentage",
-                      "${widget.advancePercentage}%",
-                    ),
-                    const Divider(height: AppSizes.lg),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSizes.md,
-                        vertical: AppSizes.md,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              "Advance Amount (Pay Now)",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSizes.sm),
-                          Text(
-                            formatPrice(widget.advanceAmount),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSizes.sm),
-                    _priceRow(
-                      "Remaining Balance",
-                      formatPrice(widget.remainingBalance),
-                    ),
-                  ],
-                ),
+              AdvancePaymentBreakdown(
+                totalPrice: booking.totalAmount,
+                advancePercentage: advancePercentage,
+                advanceAmount: booking.advanceAmount,
+                remainingBalance: remainingBalance,
               ),
               const SizedBox(height: AppSizes.md),
               Container(
@@ -397,7 +368,7 @@ class _BookingConfirmationScreenState
               ),
               const SizedBox(height: AppSizes.lg),
               GradientButton(
-                label: "Pay Advance (${formatPrice(widget.advanceAmount)})",
+                label: "Pay Advance (${formatPkr(booking.advanceAmount)})",
                 icon: Icons.lock_outline,
                 onPressed: validateAndPay,
               ),
@@ -443,31 +414,6 @@ class _BookingConfirmationScreenState
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _priceRow(String title, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSizes.sm),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ],
       ),

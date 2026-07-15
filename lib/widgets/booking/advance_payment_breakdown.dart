@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
 
 class AdvancePaymentBreakdown extends StatelessWidget {
-  final int totalPrice;
-  final int advancePercentage;
-  final int advanceAmount;
-  final int remainingBalance;
+  final num totalPrice;
+  final num advancePercentage;
+  final num advanceAmount;
+  final num remainingBalance;
 
   const AdvancePaymentBreakdown({
     super.key,
@@ -17,7 +18,7 @@ class AdvancePaymentBreakdown extends StatelessWidget {
     required this.remainingBalance,
   });
 
-  String formatPrice(int price) => "PKR $price";
+  String formatPrice(num price) => formatPkr(price);
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +51,10 @@ class AdvancePaymentBreakdown extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _row("Total Booking Amount", formatPrice(totalPrice)),
-          _row("Advance Required", "$advancePercentage%"),
+          _row(
+            "Advance Required",
+            "${advancePercentage.toStringAsFixed(0)}%",
+          ),
           _row(
             "Advance Amount (Pay Now)",
             formatPrice(advanceAmount),

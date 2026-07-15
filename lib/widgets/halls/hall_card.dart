@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
+import 'package:marriage_hall_app/widgets/shared/network_image_box.dart';
 
 class HallCard extends StatelessWidget {
-  final String imagePath;
+  final String? imageUrl;
   final String hallName;
   final String location;
-  final String price;
-  final String capacity;
+  final num pricePerDay;
+  final int capacity;
   final double rating;
   final int reviews;
   final bool isFavourite;
@@ -18,10 +20,10 @@ class HallCard extends StatelessWidget {
 
   const HallCard({
     super.key,
-    required this.imagePath,
+    required this.imageUrl,
     required this.hallName,
     required this.location,
-    required this.price,
+    required this.pricePerDay,
     required this.capacity,
     required this.rating,
     required this.reviews,
@@ -43,11 +45,10 @@ class HallCard extends StatelessWidget {
             // Hall Image
             Stack(
               children: [
-                Image.asset(
-                  imagePath,
+                NetworkImageBox(
+                  url: imageUrl,
                   height: 220,
                   width: double.infinity,
-                  fit: BoxFit.cover,
                 ),
 
                 Positioned(
@@ -167,7 +168,7 @@ class HallCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              capacity,
+                              "Up to $capacity Guests",
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -196,7 +197,7 @@ class HallCard extends StatelessWidget {
                     shaderCallback: (bounds) =>
                         AppColors.primaryGradient.createShader(bounds),
                     child: Text(
-                      price,
+                      formatPkr(pricePerDay),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 22,

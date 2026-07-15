@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
 
 class BookingPriceSection extends StatelessWidget {
-  final int hallBasePrice;
-  final int foodPrice;
-  final int extrasPrice;
-  final int totalPrice;
+  final num hallBasePrice;
+  final num foodPrice;
+  final num extrasPrice;
+  final num totalPrice;
 
   const BookingPriceSection({
     super.key,
@@ -17,9 +18,7 @@ class BookingPriceSection extends StatelessWidget {
     required this.totalPrice,
   });
 
-  String formatPrice(int price) {
-    return "PKR ${price.toString()}";
-  }
+  String formatPrice(num price) => formatPkr(price);
 
   @override
   Widget build(BuildContext context) {
