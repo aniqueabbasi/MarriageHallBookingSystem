@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
-import 'package:marriage_hall_app/constants/hall_status.dart';
-import 'package:marriage_hall_app/constants/lists.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
-import 'package:marriage_hall_app/screens/virtual_tour/virtual_tour_screen.dart';
 import 'package:marriage_hall_app/controllers/halls/create_hall_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/extra_service_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/food_package_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/hall_detail_controller.dart';
 import 'package:marriage_hall_app/controllers/halls/hall_form_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/my_halls_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/update_hall_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/virtual_tour_controller.dart';
+import 'package:marriage_hall_app/models/halls/create_extra_service_request.dart';
+import 'package:marriage_hall_app/models/halls/create_food_package_request.dart';
 import 'package:marriage_hall_app/models/halls/create_hall_request.dart';
+import 'package:marriage_hall_app/models/halls/extra_service.dart';
+import 'package:marriage_hall_app/models/halls/food_package.dart';
+import 'package:marriage_hall_app/models/halls/hall.dart';
+import 'package:marriage_hall_app/models/halls/update_hall_request.dart';
+import 'package:marriage_hall_app/models/halls/virtual_tour_info.dart';
+import 'package:marriage_hall_app/widgets/owner/hall_form/add_extra_service_dialog.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/add_food_package_dialog.dart';
+import 'package:marriage_hall_app/widgets/owner/hall_form/add_virtual_tour_dialog.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/availability_calendar_preview.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/day_selector.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/extra_service_row.dart';
@@ -20,78 +33,99 @@ import 'package:marriage_hall_app/widgets/owner/hall_form/labeled_text_field.dar
 import 'package:marriage_hall_app/widgets/owner/hall_form/section_card.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/stepper_field.dart';
 import 'package:marriage_hall_app/widgets/owner/hall_form/toggle_row.dart';
+import 'package:marriage_hall_app/widgets/owner/hall_form/virtual_tour_row.dart';
 
 const List<Map<String, String>> hallTimeSlots = [
   {'id': 'day', 'label': 'Day Slot', 'time': '12:00 PM - 5:00 PM'},
   {'id': 'evening', 'label': 'Evening Slot', 'time': '6:00 PM - 10:00 PM'},
 ];
 
-class AddEditHallScreen extends ConsumerStatefulWidget {
-  final Map<String, dynamic>? initialHall;
+/// Entry point. In edit mode this first loads the real hall via
+/// [hallDetailProvider] (a [HallSummary] from My Halls isn't enough — no
+/// description/address) and only renders the form once that resolves.
+class AddEditHallScreen extends ConsumerWidget {
+  final int? hallId;
 
-  const AddEditHallScreen({super.key, this.initialHall});
-
-  bool get isEditMode => initialHall != null;
+  const AddEditHallScreen({super.key, this.hallId});
 
   @override
-  ConsumerState<AddEditHallScreen> createState() => _AddEditHallScreenState();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final id = hallId;
+    if (id == null) {
+      return const _HallFormScreen(hallId: null, hall: null);
+    }
+
+    final hallAsync = ref.watch(hallDetailProvider(id));
+    return hallAsync.when(
+      loading: () => Scaffold(
+        appBar: AppBar(title: const Text("Edit Hall")),
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (error, stack) => Scaffold(
+        appBar: AppBar(title: const Text("Edit Hall")),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text("Could not load this hall: ${error.toString()}"),
+          ),
+        ),
+      ),
+      data: (hall) => _HallFormScreen(hallId: id, hall: hall),
+    );
+  }
 }
 
-class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
-  Map<String, dynamic> get _hall => widget.initialHall ?? const {};
+class _HallFormScreen extends ConsumerStatefulWidget {
+  final int? hallId;
+  final Hall? hall;
 
-  bool get _isResubmission => _hall['status'] == HallStatus.rejected;
+  const _HallFormScreen({required this.hallId, required this.hall});
 
-  late final HallFormKey _formKey = (UniqueKey().toString(), widget.initialHall);
+  bool get isEditMode => hallId != null;
+
+  @override
+  ConsumerState<_HallFormScreen> createState() => _HallFormScreenState();
+}
+
+class _HallFormScreenState extends ConsumerState<_HallFormScreen> {
+  late final HallFormKey _formKey = (
+    UniqueKey().toString(),
+    widget.hall == null
+        ? null
+        : {'city': widget.hall!.city, 'isActive': widget.hall!.isActive},
+  );
 
   // Basic Information
   late final nameController = TextEditingController(
-    text: _hall['hallName'] ?? '',
+    text: widget.hall?.name ?? '',
   );
   late final descriptionController = TextEditingController(
-    text: _hall['description'] ?? '',
+    text: widget.hall?.description ?? '',
   );
   late final addressController = TextEditingController(
-    text: _hall['address'] ?? '',
+    text: widget.hall?.address ?? '',
   );
 
   // Hall Details
   late final capacityController = TextEditingController(
-    text: _hall['capacity'] ?? '',
+    text: widget.hall == null ? '' : '${widget.hall!.capacity}',
   );
   late final priceController = TextEditingController(
-    text: _hall['price'] ?? '',
+    text: widget.hall == null
+        ? ''
+        : widget.hall!.pricePerDay.toStringAsFixed(0),
   );
-  late final pricePerPersonController = TextEditingController(
-    text: _hall['pricePerPerson'] ?? '',
-  );
+  final pricePerPersonController = TextEditingController();
 
-  // Contact Information
-  late final ownerNameController = TextEditingController(
-    text: _hall['ownerName'] ?? '',
-  );
-  late final phoneController = TextEditingController(
-    text: _hall['phone'] ?? '',
-  );
-  late final whatsappController = TextEditingController(
-    text: _hall['whatsapp'] ?? '',
-  );
-  late final emailController = TextEditingController(
-    text: _hall['email'] ?? '',
-  );
+  // Contact Information — no backing field on the real Hall model yet.
+  final ownerNameController = TextEditingController();
+  final phoneController = TextEditingController();
+  final whatsappController = TextEditingController();
+  final emailController = TextEditingController();
 
-  final Map<String, TextEditingController> _extraServicePriceControllers = {};
-
-  TextEditingController _priceControllerFor(String serviceName) {
-    return _extraServicePriceControllers.putIfAbsent(serviceName, () {
-      final existing = List<Map<String, dynamic>>.from(
-        (_hall['extraServices'] as List?) ?? const [],
-      );
-      final match = existing.where((e) => e['name'] == serviceName);
-      final price = match.isEmpty ? '' : '${match.first['price'] ?? ''}';
-      return TextEditingController(text: price);
-    });
-  }
+  int? _deletingFoodPackageId;
+  int? _deletingExtraServiceId;
+  int? _deletingVirtualTourId;
 
   @override
   void dispose() {
@@ -105,45 +139,77 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
     phoneController.dispose();
     whatsappController.dispose();
     emailController.dispose();
-    for (final controller in _extraServicePriceControllers.values) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
   Future<void> addFoodPackage() async {
-    final result = await showDialog<Map<String, dynamic>>(
+    final request = await showDialog<CreateFoodPackageRequest>(
       context: context,
       builder: (context) => const AddFoodPackageDialog(),
     );
+    if (request == null) return;
 
-    if (result != null) {
-      ref.read(hallFormControllerProvider(_formKey).notifier).addFoodPackage(result);
+    if (!widget.isEditMode) {
+      ref
+          .read(hallFormControllerProvider(_formKey).notifier)
+          .addStagedFoodPackage(request);
+      return;
     }
+
+    final hallId = widget.hallId!;
+    final current = widget.hall!;
+    final hall = await ref
+        .read(updateHallControllerProvider(hallId).notifier)
+        .submit(
+          hallId,
+          UpdateHallRequest(
+            name: current.name,
+            description: current.description,
+            address: current.address,
+            city: current.city,
+            capacity: current.capacity,
+            pricePerDay: current.pricePerDay,
+            isActive: current.isActive,
+            foodPackages: [
+              ...current.foodPackages.map((p) => p.toCreateRequest()),
+              request,
+            ],
+            extraServices: current.extraServices
+                .map((s) => s.toCreateRequest())
+                .toList(),
+          ),
+        );
+
+    if (!mounted) return;
+
+    if (hall == null) {
+      final message = ref
+          .read(updateHallControllerProvider(hallId))
+          .errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not add food package")),
+      );
+      return;
+    }
+
+    ref.invalidate(hallDetailProvider(hallId));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Food package added.")));
   }
 
-  Future<void> addCustomService() async {
-    final nameController = TextEditingController();
-    final priceController = TextEditingController();
+  Future<void> confirmDeleteFoodPackage(FoodPackage package) async {
+    final hallId = widget.hallId;
+    if (hallId == null) return;
 
-    final result = await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Add Custom Service"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Service Name"),
-            ),
-            const SizedBox(height: AppSizes.md),
-            TextField(
-              controller: priceController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Price (PKR)"),
-            ),
-          ],
+        title: const Text("Remove Food Package"),
+        content: Text(
+          'Remove "${package.name}"? This can\'t be undone from here. '
+          "Bookings that already picked this package keep it — it just "
+          "won't be offered on new bookings.",
         ),
         actions: [
           TextButton(
@@ -152,68 +218,279 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Add"),
+            child: const Text(
+              "Remove",
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
     );
 
-    if (result == true && nameController.text.trim().isNotEmpty) {
-      final name = nameController.text.trim();
-      ref.read(hallFormControllerProvider(_formKey).notifier).addExtraService(name);
-      _extraServicePriceControllers[name] = TextEditingController(
-        text: priceController.text.trim(),
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() => _deletingFoodPackageId = package.id);
+    final success = await ref
+        .read(foodPackageControllerProvider(hallId).notifier)
+        .deletePackage(hallId, package.id);
+
+    if (!mounted) return;
+    setState(() => _deletingFoodPackageId = null);
+
+    if (success) {
+      ref.invalidate(hallDetailProvider(hallId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Food package removed.")),
+      );
+    } else {
+      final message = ref
+          .read(foodPackageControllerProvider(hallId))
+          .errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not remove food package")),
       );
     }
   }
 
-  void addImage() {
-    final formState = ref.read(hallFormControllerProvider(_formKey));
-    if (formState.images.length >= hallFormMaxImages) {
+  Future<void> addExtraService() async {
+    final request = await showDialog<CreateExtraServiceRequest>(
+      context: context,
+      builder: (context) => const AddExtraServiceDialog(),
+    );
+    if (request == null) return;
+
+    if (!widget.isEditMode) {
+      ref
+          .read(hallFormControllerProvider(_formKey).notifier)
+          .addStagedExtraService(request);
+      return;
+    }
+
+    final hallId = widget.hallId!;
+    final current = widget.hall!;
+    final hall = await ref
+        .read(updateHallControllerProvider(hallId).notifier)
+        .submit(
+          hallId,
+          UpdateHallRequest(
+            name: current.name,
+            description: current.description,
+            address: current.address,
+            city: current.city,
+            capacity: current.capacity,
+            pricePerDay: current.pricePerDay,
+            isActive: current.isActive,
+            foodPackages: current.foodPackages
+                .map((p) => p.toCreateRequest())
+                .toList(),
+            extraServices: [
+              ...current.extraServices.map((s) => s.toCreateRequest()),
+              request,
+            ],
+          ),
+        );
+
+    if (!mounted) return;
+
+    if (hall == null) {
+      final message = ref
+          .read(updateHallControllerProvider(hallId))
+          .errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("You can add up to 6 images only.")),
+        SnackBar(content: Text(message ?? "Could not add service")),
       );
       return;
     }
 
-    final next =
-        hallFormPlaceholderImages[formState.images.length % hallFormPlaceholderImages.length];
-    ref.read(hallFormControllerProvider(_formKey).notifier).addImage(next);
+    ref.invalidate(hallDetailProvider(hallId));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Service added.")));
   }
 
-  Future<void> pickVirtualTourImage() async {
-    final selected = await showModalBottomSheet<String>(
+  Future<void> confirmDeleteExtraService(ExtraService service) async {
+    final hallId = widget.hallId;
+    if (hallId == null) return;
+
+    final confirmed = await showDialog<bool>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppSizes.radiusLg),
+      builder: (context) => AlertDialog(
+        title: const Text("Remove Service"),
+        content: Text(
+          'Remove "${service.name}"? This can\'t be undone from here. '
+          "Bookings that already picked this service keep it — it just "
+          "won't be offered on new bookings.",
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              "Remove",
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
       ),
-      builder: (context) =>
-          const _GalleryPickerSheet(images: hallFormPlaceholderImages),
     );
 
-    if (selected != null) {
-      ref
-          .read(hallFormControllerProvider(_formKey).notifier)
-          .setVirtualTourImage(selected);
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() => _deletingExtraServiceId = service.id);
+    final success = await ref
+        .read(extraServiceControllerProvider(hallId).notifier)
+        .deleteService(hallId, service.id);
+
+    if (!mounted) return;
+    setState(() => _deletingExtraServiceId = null);
+
+    if (success) {
+      ref.invalidate(hallDetailProvider(hallId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Service removed.")));
+    } else {
+      final message = ref
+          .read(extraServiceControllerProvider(hallId))
+          .errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not remove service")),
+      );
     }
   }
 
-  void previewVirtualTour() {
-    final panoramaImage =
-        ref.read(hallFormControllerProvider(_formKey)).virtualTourImage;
-    Navigator.push(
+  /// Create mode only — picked photos are staged locally and uploaded
+  /// together when the hall itself is submitted.
+  Future<void> pickImages() async {
+    final picked = await ImagePicker().pickMultiImage();
+    if (picked.isEmpty) return;
+    if (!mounted) return;
+    ref
+        .read(hallFormControllerProvider(_formKey).notifier)
+        .addPickedImages(picked);
+  }
+
+  /// Edit mode only — images can only be added (never removed) via a
+  /// multipart update; there's no image-delete endpoint.
+  Future<void> addPhotos() async {
+    final hallId = widget.hallId;
+    if (hallId == null) return;
+
+    final picked = await ImagePicker().pickMultiImage();
+    if (picked.isEmpty) return;
+    if (!mounted) return;
+
+    final current = widget.hall!;
+    final hall = await ref
+        .read(updateHallControllerProvider(hallId).notifier)
+        .submit(
+          hallId,
+          UpdateHallRequest(
+            name: current.name,
+            description: current.description,
+            address: current.address,
+            city: current.city,
+            capacity: current.capacity,
+            pricePerDay: current.pricePerDay,
+            isActive: current.isActive,
+            foodPackages: current.foodPackages
+                .map((p) => p.toCreateRequest())
+                .toList(),
+            extraServices: current.extraServices
+                .map((s) => s.toCreateRequest())
+                .toList(),
+            newImages: picked,
+          ),
+        );
+
+    if (!mounted) return;
+
+    if (hall == null) {
+      final message = ref
+          .read(updateHallControllerProvider(hallId))
+          .errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not add photos")),
+      );
+      return;
+    }
+
+    ref.invalidate(hallDetailProvider(hallId));
+    ScaffoldMessenger.of(
       context,
-      MaterialPageRoute(
-        builder: (context) => VirtualTourScreen(
-          hallName: nameController.text.trim().isEmpty
-              ? "Your Hall"
-              : nameController.text.trim(),
-          tourUrl: panoramaImage!,
+    ).showSnackBar(const SnackBar(content: Text("Photos added.")));
+  }
+
+  Future<void> addVirtualTour() async {
+    final hallId = widget.hallId;
+    if (hallId == null) return;
+
+    final tour = await showDialog<VirtualTourInfo>(
+      context: context,
+      builder: (context) => AddVirtualTourDialog(hallId: hallId),
+    );
+
+    if (tour != null) {
+      ref.invalidate(hallDetailProvider(hallId));
+    }
+  }
+
+  Future<void> confirmDeleteVirtualTour(VirtualTourInfo tour) async {
+    final hallId = widget.hallId;
+    if (hallId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Remove Virtual Tour"),
+        content: Text(
+          'Remove "${tour.title}"? This can\'t be undone from here.',
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              "Remove",
+              style: TextStyle(color: AppColors.error),
+            ),
+          ),
+        ],
       ),
     );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
+    setState(() => _deletingVirtualTourId = tour.id);
+    final success = await ref
+        .read(virtualTourControllerProvider(hallId).notifier)
+        .deleteTour(hallId, tour.id);
+
+    if (!mounted) return;
+    setState(() => _deletingVirtualTourId = null);
+
+    if (success) {
+      ref.invalidate(hallDetailProvider(hallId));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Virtual tour removed.")));
+    } else {
+      final message = ref
+          .read(virtualTourControllerProvider(hallId))
+          .errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not remove virtual tour")),
+      );
+    }
   }
 
   Future<void> saveHall() async {
@@ -223,6 +500,13 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Hall name is required")));
+      return;
+    }
+
+    if (addressController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Address is required")),
+      );
       return;
     }
 
@@ -236,130 +520,106 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
     final capacity = int.tryParse(capacityController.text.trim());
     final pricePerDay = double.tryParse(priceController.text.trim());
 
-    if (!widget.isEditMode) {
-      // Only the create flow is wired to a real endpoint (no PUT was given
-      // yet for edits), so these need to be genuinely valid numbers here.
-      if (capacity == null || capacity <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Enter a valid guest capacity (a number)"),
-          ),
-        );
-        return;
-      }
-
-      if (pricePerDay == null || pricePerDay <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Enter a valid base hall price (a number)"),
-          ),
-        );
-        return;
-      }
+    if (capacity == null || capacity <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter a valid guest capacity (a number)")),
+      );
+      return;
     }
 
-    final extraServices = List.generate(formState.extraServiceNames.length, (
-      index,
-    ) {
-      final name = formState.extraServiceNames[index];
-      return {
-        'name': name,
-        'price': _priceControllerFor(name).text.trim().isEmpty
-            ? '0'
-            : _priceControllerFor(name).text.trim(),
-        'enabled': formState.extraServiceEnabled[index],
-      };
-    });
+    if (pricePerDay == null || pricePerDay <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter a valid base hall price (a number)")),
+      );
+      return;
+    }
 
-    final hallData = {
-      'imagePath': formState.images.isNotEmpty
-          ? formState.images.first
-          : hallFormPlaceholderImages.first,
-      'images': formState.images,
-      'virtualTourImage': formState.virtualTourImage,
-      'hallName': nameController.text.trim(),
-      'description': descriptionController.text.trim(),
-      'city': formState.selectedCity,
-      'address': addressController.text.trim(),
-      'capacity': capacityController.text.trim(),
-      'price': priceController.text.trim(),
-      'pricePerPerson': pricePerPersonController.text.trim(),
-      'parkingSpaces': '${formState.parkingSpaces}',
-      'bridalRooms': '${formState.bridalRooms}',
-      'washrooms': '${formState.washrooms}',
-      'hasAC': formState.hasAC,
-      'hasGenerator': formState.hasGenerator,
-      'hasCatering': formState.hasCatering,
-      'isAvailable': _hall['isAvailable'] ?? true,
-      'status': _isResubmission
-          ? HallStatus.pending
-          : (_hall['status'] ?? HallStatus.pending),
-      'rejectionReason': _isResubmission ? null : _hall['rejectionReason'],
-      'foodPackages': formState.foodPackages,
-      'extraServices': extraServices,
-      'availableDays': formState.availableDays,
-      'timeSlots': formState.selectedTimeSlots,
-      'advancePaymentType': formState.advancePaymentType,
-      'advancePercentage': formState.advancePercentage,
-      'ownerName': ownerNameController.text.trim(),
-      'phone': phoneController.text.trim(),
-      'whatsapp': whatsappController.text.trim(),
-      'email': emailController.text.trim(),
-    };
+    if (!widget.isEditMode && formState.pickedImages.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Add at least one photo of your hall")),
+      );
+      return;
+    }
 
-    if (!widget.isEditMode) {
-      // Real backend call — only name/description/address/city/capacity/
-      // pricePerDay exist on this endpoint. Everything else above (food
-      // packages, images, parking, AC, advance %, ...) has no matching API
-      // yet, so it stays local-only on this dummy record for now.
+    final name = nameController.text.trim();
+    final description = descriptionController.text.trim();
+    final address = addressController.text.trim();
+    final city = formState.selectedCity;
+
+    if (widget.isEditMode) {
+      final hallId = widget.hallId!;
       final hall = await ref
-          .read(createHallControllerProvider.notifier)
+          .read(updateHallControllerProvider(hallId).notifier)
           .submit(
-            CreateHallRequest(
-              name: nameController.text.trim(),
-              description: descriptionController.text.trim(),
-              address: addressController.text.trim(),
-              city: formState.selectedCity,
-              capacity: capacity!,
-              pricePerDay: pricePerDay!,
+            hallId,
+            UpdateHallRequest(
+              name: name,
+              description: description,
+              address: address,
+              city: city,
+              capacity: capacity,
+              pricePerDay: pricePerDay,
+              isActive: formState.isActive,
+              foodPackages: widget.hall!.foodPackages
+                  .map((p) => p.toCreateRequest())
+                  .toList(),
+              extraServices: widget.hall!.extraServices
+                  .map((s) => s.toCreateRequest())
+                  .toList(),
             ),
           );
 
       if (!mounted) return;
 
       if (hall == null) {
-        final message = ref.read(createHallControllerProvider).errorMessage;
+        final message = ref.read(updateHallControllerProvider(hallId)).errorMessage;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message ?? "Could not create hall")),
+          SnackBar(content: Text(message ?? "Could not update hall")),
         );
         return;
       }
 
-      hallData['hallId'] = hall.id;
-      hallData['hallName'] = hall.name;
-      hallData['description'] = hall.description;
-      hallData['city'] = hall.city;
-      hallData['address'] = hall.address;
-      hallData['capacity'] = '${hall.capacity}';
-      hallData['price'] = hall.pricePerDay.toStringAsFixed(0);
-      hallData['isAvailable'] = hall.isActive;
+      ref.invalidate(myHallsProvider);
+      ref.invalidate(hallDetailProvider(hallId));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Hall updated!")));
+      Navigator.pop(context, true);
+      return;
     }
+
+    final hall = await ref
+        .read(createHallControllerProvider.notifier)
+        .submit(
+          CreateHallRequest(
+            name: name,
+            description: description,
+            address: address,
+            city: city,
+            capacity: capacity,
+            pricePerDay: pricePerDay,
+            images: formState.pickedImages,
+            foodPackages: formState.stagedFoodPackages,
+            extraServices: formState.stagedExtraServices,
+          ),
+        );
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          _isResubmission
-              ? "Hall resubmitted for review!"
-              : widget.isEditMode
-              ? "Hall updated!"
-              : "Hall created!",
-        ),
-      ),
-    );
+    if (hall == null) {
+      final message = ref.read(createHallControllerProvider).errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? "Could not create hall")),
+      );
+      return;
+    }
 
-    Navigator.pop(context, hallData);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Hall created!")));
+    Navigator.pop(context, true);
   }
 
   @override
@@ -367,9 +627,29 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
     const cities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi'];
     final formState = ref.watch(hallFormControllerProvider(_formKey));
     final formNotifier = ref.read(hallFormControllerProvider(_formKey).notifier);
-    final isSaving = ref.watch(
-      createHallControllerProvider.select((s) => s.isLoading),
-    );
+    final isSaving = widget.isEditMode
+        ? ref.watch(
+            updateHallControllerProvider(widget.hallId!).select((s) => s.isLoading),
+          )
+        : ref.watch(createHallControllerProvider.select((s) => s.isLoading));
+    // Watched here (not just read from inside the dialogs/delete handlers)
+    // so these autoDispose providers stay alive for the duration of their
+    // async add/delete calls — see the update-hall autoDispose teardown fix.
+    final isFoodPackageBusy = widget.isEditMode
+        ? ref.watch(
+            foodPackageControllerProvider(widget.hallId!).select((s) => s.isLoading),
+          )
+        : false;
+    final isExtraServiceBusy = widget.isEditMode
+        ? ref.watch(
+            extraServiceControllerProvider(widget.hallId!).select((s) => s.isLoading),
+          )
+        : false;
+    final isVirtualTourBusy = widget.isEditMode
+        ? ref.watch(
+            virtualTourControllerProvider(widget.hallId!).select((s) => s.isLoading),
+          )
+        : false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -382,52 +662,6 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_isResubmission) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSizes.md),
-                margin: const EdgeInsets.only(bottom: AppSizes.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                  border: Border.all(
-                    color: AppColors.error.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.error_outline, color: AppColors.error),
-                        SizedBox(width: AppSizes.sm),
-                        Text(
-                          "Rejected by Admin",
-                          style: TextStyle(
-                            color: AppColors.error,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSizes.sm),
-                    Text(
-                      _hall['rejectionReason'] ?? 'No reason was provided.',
-                      style: const TextStyle(color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: AppSizes.xs),
-                    const Text(
-                      "Fix the issue above and resubmit for review.",
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             SectionCard(
               icon: Icons.info_outline,
               title: "Basic Information",
@@ -540,6 +774,15 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
                     icon: Icons.person_outline,
                     keyboardType: TextInputType.number,
                   ),
+                  if (widget.isEditMode) ...[
+                    const SizedBox(height: AppSizes.sm),
+                    ToggleRow(
+                      icon: Icons.visibility_outlined,
+                      label: "Active (visible to clients)",
+                      value: formState.isActive,
+                      onChanged: formNotifier.setIsActive,
+                    ),
+                  ],
                   const SizedBox(height: AppSizes.md),
                   StepperField(
                     icon: Icons.local_parking_outlined,
@@ -595,77 +838,169 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
               icon: Icons.restaurant_menu,
               title: "Food Packages",
               subtitle: "Define the packages guests can choose from",
-              child: Column(
-                children: [
-                  ...formState.foodPackages.asMap().entries.map((entry) {
-                    return FoodPackageCard(
-                      package: entry.value,
-                      onDelete: () => formNotifier.removeFoodPackageAt(entry.key),
-                    );
-                  }),
-                  const SizedBox(height: AppSizes.sm),
-                  OutlinedButton.icon(
-                    onPressed: addFoodPackage,
-                    icon: const Icon(Icons.add),
-                    label: const Text("Add Food Package"),
-                  ),
-                ],
-              ),
+              child: widget.isEditMode
+                  ? Column(
+                      children: [
+                        ...(widget.hall?.foodPackages ?? const []).map((
+                          package,
+                        ) {
+                          return FoodPackageCard(
+                            package: package,
+                            isDeleting: _deletingFoodPackageId == package.id,
+                            onDelete: isFoodPackageBusy
+                                ? null
+                                : () => confirmDeleteFoodPackage(package),
+                          );
+                        }),
+                        const SizedBox(height: AppSizes.sm),
+                        OutlinedButton.icon(
+                          onPressed: isFoodPackageBusy ? null : addFoodPackage,
+                          icon: const Icon(Icons.add),
+                          label: const Text("Add Food Package"),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        ...formState.stagedFoodPackages.asMap().entries.map((
+                          entry,
+                        ) {
+                          final staged = entry.value;
+                          return FoodPackageCard(
+                            package: FoodPackage(
+                              id: 0,
+                              name: staged.name,
+                              description: staged.description,
+                              pricePerHead: staged.pricePerHead,
+                            ),
+                            isDeleting: false,
+                            onDelete: () => formNotifier
+                                .removeStagedFoodPackageAt(entry.key),
+                          );
+                        }),
+                        const SizedBox(height: AppSizes.sm),
+                        OutlinedButton.icon(
+                          onPressed: addFoodPackage,
+                          icon: const Icon(Icons.add),
+                          label: const Text("Add Food Package"),
+                        ),
+                      ],
+                    ),
             ),
 
             SectionCard(
               icon: Icons.room_service_outlined,
               title: "Extra Services",
               subtitle: "Optional add-ons with their own pricing",
-              child: Column(
-                children: [
-                  ...List.generate(formState.extraServiceNames.length, (index) {
-                    final name = formState.extraServiceNames[index];
-                    return ExtraServiceRow(
-                      name: name,
-                      priceController: _priceControllerFor(name),
-                      enabled: formState.extraServiceEnabled[index],
-                      onToggle: (value) =>
-                          formNotifier.toggleExtraServiceEnabled(index, value),
-                      onDelete: () {
-                        _extraServicePriceControllers.remove(name)?.dispose();
-                        formNotifier.removeExtraServiceAt(index);
-                      },
-                    );
-                  }),
-                  const SizedBox(height: AppSizes.sm),
-                  OutlinedButton.icon(
-                    onPressed: addCustomService,
-                    icon: const Icon(Icons.add),
-                    label: const Text("Add Custom Service"),
-                  ),
-                ],
-              ),
+              child: widget.isEditMode
+                  ? Column(
+                      children: [
+                        ...(widget.hall?.extraServices ?? const []).map((
+                          service,
+                        ) {
+                          return ExtraServiceRow(
+                            service: service,
+                            isDeleting: _deletingExtraServiceId == service.id,
+                            onDelete: isExtraServiceBusy
+                                ? null
+                                : () => confirmDeleteExtraService(service),
+                          );
+                        }),
+                        const SizedBox(height: AppSizes.sm),
+                        OutlinedButton.icon(
+                          onPressed: isExtraServiceBusy
+                              ? null
+                              : addExtraService,
+                          icon: const Icon(Icons.add),
+                          label: const Text("Add Custom Service"),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        ...formState.stagedExtraServices.asMap().entries.map((
+                          entry,
+                        ) {
+                          final staged = entry.value;
+                          return ExtraServiceRow(
+                            service: ExtraService(
+                              id: 0,
+                              name: staged.name,
+                              description: staged.description,
+                              price: staged.price,
+                            ),
+                            isDeleting: false,
+                            onDelete: () => formNotifier
+                                .removeStagedExtraServiceAt(entry.key),
+                          );
+                        }),
+                        const SizedBox(height: AppSizes.sm),
+                        OutlinedButton.icon(
+                          onPressed: addExtraService,
+                          icon: const Icon(Icons.add),
+                          label: const Text("Add Custom Service"),
+                        ),
+                      ],
+                    ),
             ),
 
             SectionCard(
               icon: Icons.photo_library_outlined,
               title: "Hall Images",
-              subtitle: "Add up to 6 photos to showcase your hall",
-              child: ImagePickerGrid(
-                images: formState.images,
-                onAdd: addImage,
-                onRemove: (index) => formNotifier.removeImageAt(index),
-              ),
+              subtitle: widget.isEditMode
+                  ? "Add more photos to showcase your hall"
+                  : "Add up to 6 photos to showcase your hall — at least one is required",
+              child: widget.isEditMode
+                  ? ExistingImagesGrid(
+                      images: widget.hall!.images,
+                      onAddPhotos: addPhotos,
+                      isUploading: isSaving,
+                    )
+                  : PickedImagesGrid(
+                      images: formState.pickedImages,
+                      onAdd: pickImages,
+                      onRemove: (index) =>
+                          formNotifier.removePickedImageAt(index),
+                    ),
             ),
 
             SectionCard(
               icon: Icons.threesixty,
               title: "360° Virtual Tour",
               subtitle:
-                  "Upload a 360° panorama image to help clients explore your hall virtually.",
-              child: _VirtualTourSection(
-                virtualTourImage: formState.virtualTourImage,
-                onUpload: pickVirtualTourImage,
-                onReplace: pickVirtualTourImage,
-                onRemove: formNotifier.removeVirtualTourImage,
-                onPreview: previewVirtualTour,
-              ),
+                  "Add 360° tour links to help clients explore your hall virtually.",
+              child: widget.isEditMode
+                  ? Column(
+                      children: [
+                        ...(widget.hall?.virtualTours ?? const []).map((
+                          tour,
+                        ) {
+                          return VirtualTourRow(
+                            tour: tour,
+                            isDeleting: _deletingVirtualTourId == tour.id,
+                            onDelete: isVirtualTourBusy
+                                ? null
+                                : () => confirmDeleteVirtualTour(tour),
+                          );
+                        }),
+                        const SizedBox(height: AppSizes.sm),
+                        OutlinedButton.icon(
+                          onPressed: isVirtualTourBusy
+                              ? null
+                              : addVirtualTour,
+                          icon: const Icon(Icons.add),
+                          label: const Text("Add Virtual Tour"),
+                        ),
+                      ],
+                    )
+                  : const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSizes.sm),
+                      child: Text(
+                        "Save this hall first, then come back here to add "
+                        "virtual tours.",
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
             ),
 
             SectionCard(
@@ -818,7 +1153,7 @@ class _AddEditHallScreenState extends ConsumerState<AddEditHallScreen> {
             GradientButton(
               label: isSaving
                   ? "Saving..."
-                  : (_isResubmission ? "Resubmit for Approval" : "Save Hall"),
+                  : (widget.isEditMode ? "Update Hall" : "Save Hall"),
               icon: Icons.check_circle_outline,
               onPressed: isSaving ? null : saveHall,
             ),
@@ -985,212 +1320,3 @@ class _SlotTile extends StatelessWidget {
   }
 }
 
-class _VirtualTourSection extends StatelessWidget {
-  final String? virtualTourImage;
-  final VoidCallback onUpload;
-  final VoidCallback onReplace;
-  final VoidCallback onRemove;
-  final VoidCallback onPreview;
-
-  const _VirtualTourSection({
-    required this.virtualTourImage,
-    required this.onUpload,
-    required this.onReplace,
-    required this.onRemove,
-    required this.onPreview,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final image = virtualTourImage;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (image == null)
-          GestureDetector(
-            onTap: onUpload,
-            child: Container(
-              width: double.infinity,
-              height: 140,
-              decoration: BoxDecoration(
-                color: AppColors.chipBackground,
-                borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                border: Border.all(
-                  color: AppColors.secondary.withValues(alpha: 0.5),
-                ),
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.threesixty, size: 32, color: AppColors.primary),
-                  SizedBox(height: 6),
-                  Text(
-                    "Upload 360° Panorama Image",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-            child: Stack(
-              children: [
-                Image.asset(
-                  image,
-                  width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover,
-                ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(AppSizes.radiusSm),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.threesixty, size: 14, color: Colors.white),
-                        SizedBox(width: 4),
-                        Text(
-                          "360° Preview",
-                          style: TextStyle(color: Colors.white, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSizes.sm),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onPreview,
-                  icon: const Icon(Icons.play_circle_outline, size: 16),
-                  label: const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text("Preview"),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSizes.sm),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: onReplace,
-                  icon: const Icon(Icons.sync, size: 16),
-                  label: const FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text("Replace"),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 44),
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    foregroundColor: AppColors.secondary,
-                    side: const BorderSide(color: AppColors.secondary),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSizes.sm),
-              OutlinedButton(
-                onPressed: onRemove,
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(44, 44),
-                  padding: EdgeInsets.zero,
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error),
-                ),
-                child: const Icon(Icons.delete_outline, size: 18),
-              ),
-            ],
-          ),
-        ],
-        const SizedBox(height: AppSizes.sm),
-        const Text(
-          "Use a wide panorama or 360° image for best results.",
-          style: TextStyle(
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _GalleryPickerSheet extends StatelessWidget {
-  final List<String> images;
-
-  const _GalleryPickerSheet({required this.images});
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.md),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(
-                  Icons.photo_library_outlined,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: AppSizes.sm),
-                const Text(
-                  "Choose from Gallery",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSizes.md),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: images.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisSpacing: AppSizes.sm,
-                crossAxisSpacing: AppSizes.sm,
-                childAspectRatio: 1,
-              ),
-              itemBuilder: (context, index) {
-                return GestureDetector(
-                  onTap: () => Navigator.pop(context, images[index]),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                    child: Image.asset(images[index], fit: BoxFit.cover),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: AppSizes.sm),
-          ],
-        ),
-      ),
-    );
-  }
-}

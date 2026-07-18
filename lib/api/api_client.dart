@@ -86,6 +86,18 @@ class ApiClient {
     return data is Map<String, dynamic> ? data : const {};
   }
 
+  /// [data] should be a Dio [FormData] — used for `multipart/form-data`
+  /// endpoints (file uploads). Content-Type/boundary are set by Dio.
+  Future<Map<String, dynamic>> postForm(String path, FormData data) async {
+    final result = await _request(() => _dio.post(path, data: data));
+    return result is Map<String, dynamic> ? result : const {};
+  }
+
+  Future<Map<String, dynamic>> putForm(String path, FormData data) async {
+    final result = await _request(() => _dio.put(path, data: data));
+    return result is Map<String, dynamic> ? result : const {};
+  }
+
   Future<Map<String, dynamic>> patch(
     String path,
     Map<String, dynamic> body,

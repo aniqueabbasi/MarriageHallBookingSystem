@@ -3,92 +3,76 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/controllers/reviews/submit_review_controller.dart';
+import 'package:marriage_hall_app/models/reviews/create_review_request.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
-import 'package:marriage_hall_app/controllers/reviews/add_review_controller.dart';
 
+/// Review a completed booking (`POST /api/reviews`). Pops with `true`
+/// after a successful submission.
 class AddReviewScreen extends ConsumerStatefulWidget {
+  final int bookingId;
   final String hallName;
 
-  const AddReviewScreen({super.key, required this.hallName});
+  const AddReviewScreen({
+    super.key,
+    required this.bookingId,
+    required this.hallName,
+  });
 
   @override
   ConsumerState<AddReviewScreen> createState() => _AddReviewScreenState();
 }
 
 class _AddReviewScreenState extends ConsumerState<AddReviewScreen> {
-  final reviewTextController = TextEditingController();
-
-  static const _placeholderImages = [
-    'assets/images/hall1.jpg',
-    'assets/images/hall2.jpg',
-    'assets/images/hall3.jpg',
-  ];
+  final commentController = TextEditingController();
+  int selectedRating = 0;
 
   @override
   void dispose() {
-    reviewTextController.dispose();
+    commentController.dispose();
     super.dispose();
   }
 
-  void addImage() {
-    final provider = addReviewControllerProvider(widget.hallName);
-    final uploadedImages = ref.read(provider).uploadedImages;
-
-    final next = _placeholderImages.firstWhere(
-      (path) => !uploadedImages.contains(path),
-      orElse: () => '',
-    );
-
-    if (next.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Image picker isn't wired up in this UI-only build."),
-        ),
-      );
-      return;
-    }
-
-    ref.read(provider.notifier).addImage(next);
-  }
-
-  void submitReview() {
-    final selectedRating = ref
-        .read(addReviewControllerProvider(widget.hallName))
-        .selectedRating;
-
+  Future<void> submitReview() async {
     if (selectedRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a star rating")),
+        const SnackBar(content: Text('Please select a star rating')),
       );
       return;
     }
 
-    if (reviewTextController.text.trim().isEmpty) {
+    final review = await ref
+        .read(submitReviewControllerProvider(widget.bookingId).notifier)
+        .submit(
+          CreateReviewRequest(
+            bookingId: widget.bookingId,
+            rating: selectedRating,
+            comment: commentController.text.trim(),
+          ),
+        );
+
+    if (!mounted) return;
+    if (review != null) {
+      Navigator.pop(context, true);
+    } else {
+      final message = ref
+          .read(submitReviewControllerProvider(widget.bookingId))
+          .errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please write a review before submitting")),
+        SnackBar(content: Text(message ?? 'Could not submit your review.')),
       );
-      return;
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Review submitted! (UI only — not saved anywhere yet)"),
-      ),
-    );
-    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = addReviewControllerProvider(widget.hallName);
-    final reviewState = ref.watch(provider);
+    final submitState = ref.watch(
+      submitReviewControllerProvider(widget.bookingId),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text("Write a Review"),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Write a Review'), centerTitle: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSizes.md),
         child: Column(
@@ -96,11 +80,14 @@ class _AddReviewScreenState extends ConsumerState<AddReviewScreen> {
           children: [
             Text(
               widget.hallName,
-              style: const TextStyle(fontSize: 16, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(height: AppSizes.lg),
             const Text(
-              "Star Rating",
+              'Star Rating',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSizes.sm),
@@ -108,10 +95,9 @@ class _AddReviewScreenState extends ConsumerState<AddReviewScreen> {
               children: List.generate(5, (index) {
                 final starValue = index + 1;
                 return IconButton(
-                  onPressed: () =>
-                      ref.read(provider.notifier).setRating(starValue),
+                  onPressed: () => setState(() => selectedRating = starValue),
                   icon: Icon(
-                    starValue <= reviewState.selectedRating
+                    starValue <= selectedRating
                         ? Icons.star
                         : Icons.star_border,
                     color: AppColors.star,
@@ -122,92 +108,23 @@ class _AddReviewScreenState extends ConsumerState<AddReviewScreen> {
             ),
             const SizedBox(height: AppSizes.md),
             const Text(
-              "Review Text",
+              'Review (Optional)',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSizes.sm),
             TextField(
-              controller: reviewTextController,
+              controller: commentController,
               maxLines: 4,
+              maxLength: 1000,
               decoration: const InputDecoration(
-                hintText: "Share your experience with this hall...",
-              ),
-            ),
-            const SizedBox(height: AppSizes.md),
-            const Text(
-              "Upload Images (Optional)",
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: AppSizes.sm),
-            SizedBox(
-              height: 84,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  ...reviewState.uploadedImages.asMap().entries.map((entry) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: AppSizes.sm),
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                            child: Image.asset(
-                              entry.value,
-                              width: 84,
-                              height: 84,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          Positioned(
-                            top: 4,
-                            right: 4,
-                            child: GestureDetector(
-                              onTap: () =>
-                                  ref.read(provider.notifier).removeImageAt(entry.key),
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.black54,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.close,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                  GestureDetector(
-                    onTap: addImage,
-                    child: Container(
-                      width: 84,
-                      height: 84,
-                      decoration: BoxDecoration(
-                        color: AppColors.chipBackground,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                        border: Border.all(
-                          color: AppColors.secondary.withValues(alpha: 0.5),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.add_a_photo_outlined,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
+                hintText: 'Share your experience with this hall...',
               ),
             ),
             const SizedBox(height: AppSizes.xl),
             GradientButton(
-              label: "Submit Review",
+              label: submitState.isLoading ? 'Submitting...' : 'Submit Review',
               icon: Icons.send_outlined,
-              onPressed: submitReview,
+              onPressed: submitState.isLoading ? null : submitReview,
             ),
             const SizedBox(height: AppSizes.lg),
           ],

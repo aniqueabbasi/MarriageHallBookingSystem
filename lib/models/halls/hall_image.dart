@@ -1,3 +1,5 @@
+import 'package:marriage_hall_app/api/api_config.dart';
+
 class HallImage {
   final int id;
   final String imageUrl;
@@ -11,7 +13,7 @@ class HallImage {
 
   factory HallImage.fromJson(Map<String, dynamic> json) => HallImage(
     id: json['id'] as int,
-    imageUrl: json['imageUrl'] as String,
+    imageUrl: ApiConfig.resolveUrl(json['imageUrl'] as String)!,
     isPrimary: json['isPrimary'] as bool? ?? false,
   );
 }

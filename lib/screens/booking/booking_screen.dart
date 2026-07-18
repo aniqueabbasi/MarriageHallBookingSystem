@@ -5,6 +5,7 @@ import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/controllers/booking/booking_form_controller.dart';
 import 'package:marriage_hall_app/controllers/booking/booking_submit_controller.dart';
+import 'package:marriage_hall_app/controllers/halls/hall_detail_controller.dart';
 import 'package:marriage_hall_app/models/halls/extra_service.dart';
 import 'package:marriage_hall_app/models/halls/food_package.dart';
 import 'package:marriage_hall_app/models/halls/hall.dart';
@@ -20,6 +21,15 @@ import '../../widgets/booking/confirm_booking_button.dart';
 import '../../widgets/booking/date_picker_field.dart';
 import '../../widgets/booking/phone_textfield.dart';
 import '../../widgets/booking/special_request_field.dart';
+
+/// Exact server messages for a cached food package/extra service that was
+/// soft-deleted after this hall was loaded — distinct from a generic
+/// "doesn't belong to this hall" error, this means the user's selection is
+/// just stale and they need to re-pick from a refreshed list.
+const _staleFoodPackageMessage =
+    "This food package is no longer offered. Please refresh and select again.";
+const _staleExtraServiceMessage =
+    "This extra service is no longer offered. Please refresh and select again.";
 
 class BookingScreen extends ConsumerStatefulWidget {
   final Hall hall;
@@ -141,6 +151,28 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       final message = ref
           .read(bookingSubmitControllerProvider(hall.id))
           .errorMessage;
+
+      if (message == _staleFoodPackageMessage ||
+          message == _staleExtraServiceMessage) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text("Selection Out of Date"),
+            content: Text(message!),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        ref.invalidate(hallDetailProvider(hall.id));
+        Navigator.pop(context);
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message ?? "Could not create booking")),
       );

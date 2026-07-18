@@ -1,89 +1,104 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/models/booking/booking.dart';
+import 'package:marriage_hall_app/utils/currency_formatter.dart';
+import 'package:marriage_hall_app/widgets/shared/status_chip.dart';
 
 class ClientBookingCard extends StatelessWidget {
-  final Map<String, dynamic> booking;
+  final Booking booking;
+  final VoidCallback? onTap;
 
-  const ClientBookingCard({super.key, required this.booking});
-
-  Color get _statusColor {
-    switch (booking['status']) {
-      case 'Confirmed':
-        return AppColors.success;
-      case 'Pending':
-        return AppColors.secondary;
-      default:
-        return AppColors.textSecondary;
-    }
-  }
+  const ClientBookingCard({super.key, required this.booking, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: AppSizes.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSizes.sm),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-              child: Image.asset(
-                booking['imagePath'],
-                width: 72,
-                height: 72,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: AppSizes.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSizes.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(
-                    booking['title'],
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: const BoxDecoration(
+                      color: AppColors.chipBackground,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.villa_outlined, color: AppColors.primary),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    booking['subtitle'],
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  const SizedBox(width: AppSizes.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          booking.hallName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          booking.foodPackageName.isEmpty
+                              ? 'No food package'
+                              : booking.foodPackageName,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today,
-                        size: 12,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        booking['date'],
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ],
+                  StatusChip(
+                    label: booking.status,
+                    color: bookingStatusColor(booking.status),
                   ),
                 ],
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: _statusColor.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+              const SizedBox(height: AppSizes.sm),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.calendar_today,
+                    size: 13,
+                    color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    DateFormat('dd MMM yyyy').format(booking.eventDate),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const SizedBox(width: AppSizes.md),
+                  const Icon(Icons.access_time, size: 13, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${Booking.formatTimeOfDay(booking.startTime)} - '
+                    '${Booking.formatTimeOfDay(booking.endTime)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  const Spacer(),
+                  Text(
+                    formatPkr(booking.totalAmount),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-              child: Text(
-                booking['status'],
-                style: TextStyle(
-                  color: _statusColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

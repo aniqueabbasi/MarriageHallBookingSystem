@@ -1,3 +1,5 @@
+import 'package:marriage_hall_app/models/halls/create_food_package_request.dart';
+
 class FoodPackage {
   final int id;
   final String name;
@@ -16,5 +18,13 @@ class FoodPackage {
     name: json['name'] as String,
     description: json['description'] as String? ?? '',
     pricePerHead: (json['pricePerHead'] as num).toDouble(),
+  );
+
+  /// Used to rebuild the "existing items" half of a full-replace update —
+  /// the update endpoint takes the create shape (no id), not this one.
+  CreateFoodPackageRequest toCreateRequest() => CreateFoodPackageRequest(
+    name: name,
+    description: description,
+    pricePerHead: pricePerHead,
   );
 }

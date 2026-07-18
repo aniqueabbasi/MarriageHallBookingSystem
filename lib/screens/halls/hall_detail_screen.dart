@@ -140,11 +140,9 @@ class _HallDetailBody extends ConsumerWidget {
             ),
 
             ReviewsSummarySection(
-              hallName: hall.name,
+              hallId: hall.id,
               rating: hall.averageRating,
               reviewsCount: hall.reviewCount,
-              ratingBreakdown: const {},
-              canWriteReview: false,
             ),
 
             const SizedBox(height: 20),

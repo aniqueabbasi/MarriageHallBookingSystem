@@ -7,6 +7,7 @@ import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/screens/bookings/my_bookings_screen.dart';
 import 'package:marriage_hall_app/screens/favorites/favorites_screen.dart';
 import 'package:marriage_hall_app/controllers/favorites/favorites_controller.dart';
+import 'package:marriage_hall_app/controllers/notifications/notifications_controller.dart';
 import 'package:marriage_hall_app/screens/halls/home_screen.dart';
 import 'package:marriage_hall_app/screens/notifications/notifications_screen.dart';
 import 'package:marriage_hall_app/screens/profile/profile_menu_screen.dart';
@@ -23,6 +24,7 @@ class ClientShellScreen extends ConsumerWidget {
     final currentIndex = ref.watch(clientTabIndexProvider);
     final favorites = ref.watch(favoritesControllerProvider);
     final favoritesNotifier = ref.read(favoritesControllerProvider.notifier);
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
 
     void goToTab(int index) =>
         ref.read(clientTabIndexProvider.notifier).state = index;
@@ -76,28 +78,36 @@ class ClientShellScreen extends ConsumerWidget {
             elevation: 0,
             selectedItemColor: AppColors.primary,
             unselectedItemColor: AppColors.textSecondary,
-            items: const [
+            items: [
               BottomNavigationBarItem(
-                icon: Icon(Icons.notifications_none),
-                activeIcon: Icon(Icons.notifications),
+                icon: Badge(
+                  isLabelVisible: unreadCount > 0,
+                  label: Text('$unreadCount'),
+                  child: const Icon(Icons.notifications_none),
+                ),
+                activeIcon: Badge(
+                  isLabelVisible: unreadCount > 0,
+                  label: Text('$unreadCount'),
+                  child: const Icon(Icons.notifications),
+                ),
                 label: "Alerts",
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.favorite_border),
                 activeIcon: Icon(Icons.favorite),
                 label: "Favorites",
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
                 activeIcon: Icon(Icons.home),
                 label: "Home",
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.event_note_outlined),
                 activeIcon: Icon(Icons.event_note),
                 label: "Bookings",
               ),
-              BottomNavigationBarItem(
+              const BottomNavigationBarItem(
                 icon: Icon(Icons.person_outline),
                 activeIcon: Icon(Icons.person),
                 label: "Profile",

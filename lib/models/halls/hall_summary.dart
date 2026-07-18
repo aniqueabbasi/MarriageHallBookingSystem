@@ -1,3 +1,5 @@
+import 'package:marriage_hall_app/api/api_config.dart';
+
 /// Lightweight shape returned by `GET /api/halls` (the browse/list view) —
 /// deliberately thinner than [Hall] (`GET /api/halls/{id}`), which is the
 /// only endpoint that returns food packages, extra services, full image
@@ -32,7 +34,7 @@ class HallSummary {
     capacity: json['capacity'] as int,
     pricePerDay: (json['pricePerDay'] as num).toDouble(),
     isActive: json['isActive'] as bool? ?? false,
-    primaryImageUrl: json['primaryImageUrl'] as String?,
+    primaryImageUrl: ApiConfig.resolveUrl(json['primaryImageUrl'] as String?),
     averageRating: (json['averageRating'] as num?)?.toDouble() ?? 0,
     reviewCount: json['reviewCount'] as int? ?? 0,
   );

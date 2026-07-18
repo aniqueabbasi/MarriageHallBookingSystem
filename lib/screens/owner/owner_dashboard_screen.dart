@@ -7,6 +7,7 @@ import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/screens/reviews/owner_reviews_screen.dart';
 import 'package:marriage_hall_app/controllers/halls/my_halls_controller.dart';
 import 'package:marriage_hall_app/widgets/owner/dashboard_home_tab.dart';
+import 'package:marriage_hall_app/screens/notifications/notifications_screen.dart';
 import 'package:marriage_hall_app/screens/owner/add_edit_hall_screen.dart';
 import 'package:marriage_hall_app/screens/owner/my_halls_screen.dart';
 import 'package:marriage_hall_app/screens/owner/owner_bookings_screen.dart';
@@ -18,12 +19,12 @@ class OwnerDashboardScreen extends ConsumerWidget {
   const OwnerDashboardScreen({super.key});
 
   Future<void> openAddHall(BuildContext context, WidgetRef ref) async {
-    final result = await Navigator.push<Map<String, dynamic>>(
+    final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(builder: (context) => const AddEditHallScreen()),
     );
 
-    if (result != null) {
+    if (result == true) {
       ref.invalidate(myHallsProvider);
       ref.read(ownerTabIndexProvider.notifier).state = 1;
     }
@@ -33,6 +34,13 @@ class OwnerDashboardScreen extends ConsumerWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const OwnerReviewsScreen()),
+    );
+  }
+
+  void openNotifications(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
     );
   }
 
@@ -55,6 +63,7 @@ class OwnerDashboardScreen extends ConsumerWidget {
         onAddHall: () => openAddHall(context, ref),
         onNavigateToTab: goToTab,
         onOpenReviews: () => openReviews(context),
+        onOpenNotifications: () => openNotifications(context),
       ),
       MyHallsScreen(
         hallsAsync: hallsAsync,

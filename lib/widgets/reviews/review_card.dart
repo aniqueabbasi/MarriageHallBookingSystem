@@ -3,24 +3,17 @@ import 'package:intl/intl.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/models/reviews/review.dart';
 import 'package:marriage_hall_app/widgets/reviews/star_rating_display.dart';
 
 class ReviewCard extends StatelessWidget {
-  final Map<String, dynamic> review;
+  final Review review;
 
   const ReviewCard({super.key, required this.review});
 
-  String get _formattedDate {
-    final date = DateTime.tryParse(review['date'] ?? '');
-    if (date == null) return review['date'] ?? '';
-    return DateFormat("dd MMM yyyy").format(date);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final images = List<String>.from(review['images'] as List? ?? const []);
-    final customerName = review['customerName'] as String;
-    final initials = customerName
+    final initials = review.customerName
         .trim()
         .split(RegExp(r'\s+'))
         .map((part) => part.isNotEmpty ? part[0] : '')
@@ -52,7 +45,7 @@ class ReviewCard extends StatelessWidget {
                 radius: 18,
                 backgroundColor: AppColors.chipBackground,
                 child: Text(
-                  initials,
+                  initials.isEmpty ? '?' : initials,
                   style: const TextStyle(
                     color: AppColors.primary,
                     fontWeight: FontWeight.bold,
@@ -66,44 +59,30 @@ class ReviewCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      customerName,
+                      review.customerName,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
-                    StarRatingDisplay(rating: review['rating'] as num, size: 14),
+                    StarRatingDisplay(rating: review.rating, size: 14),
                   ],
                 ),
               ),
               Text(
-                _formattedDate,
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                DateFormat('dd MMM yyyy').format(review.createdAt.toLocal()),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: AppSizes.sm),
-          Text(
-            review['reviewText'] as String,
-            style: const TextStyle(fontSize: 13, color: AppColors.textPrimary),
-          ),
-          if (images.isNotEmpty) ...[
+          if (review.comment != null && review.comment!.isNotEmpty) ...[
             const SizedBox(height: AppSizes.sm),
-            SizedBox(
-              height: 64,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: images.length,
-                separatorBuilder: (_, _) => const SizedBox(width: AppSizes.sm),
-                itemBuilder: (context, index) {
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(AppSizes.radiusMd),
-                    child: Image.asset(
-                      images[index],
-                      width: 64,
-                      height: 64,
-                      fit: BoxFit.cover,
-                    ),
-                  );
-                },
+            Text(
+              review.comment!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
               ),
             ),
           ],

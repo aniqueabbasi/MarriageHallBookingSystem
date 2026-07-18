@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 
+import 'package:marriage_hall_app/models/halls/create_food_package_request.dart';
+import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
 
+/// Pure data-entry dialog — pops with a [CreateFoodPackageRequest] once the
+/// fields validate. Doesn't touch the network itself: the caller decides
+/// whether that means staging it locally (create mode) or folding it into
+/// an immediate full-hall update (edit mode, since the backend only takes
+/// food packages via the create/update multipart endpoints now).
 class AddFoodPackageDialog extends StatefulWidget {
   const AddFoodPackageDialog({super.key});
 
@@ -12,33 +19,44 @@ class AddFoodPackageDialog extends StatefulWidget {
 
 class _AddFoodPackageDialogState extends State<AddFoodPackageDialog> {
   final nameController = TextEditingController();
-  final itemsController = TextEditingController();
+  final descriptionController = TextEditingController();
   final priceController = TextEditingController();
+  String? _errorText;
 
   @override
   void dispose() {
     nameController.dispose();
-    itemsController.dispose();
+    descriptionController.dispose();
     priceController.dispose();
     super.dispose();
   }
 
   void save() {
-    if (nameController.text.trim().isEmpty) return;
+    final name = nameController.text.trim();
+    final description = descriptionController.text.trim();
+    final price = double.tryParse(priceController.text.trim());
 
-    final items = itemsController.text
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    if (name.isEmpty) {
+      setState(() => _errorText = "Package name is required");
+      return;
+    }
+    if (description.isEmpty) {
+      setState(() => _errorText = "Description is required");
+      return;
+    }
+    if (price == null || price <= 0) {
+      setState(() => _errorText = "Enter a valid price per head");
+      return;
+    }
 
-    Navigator.pop(context, {
-      'name': nameController.text.trim(),
-      'items': items,
-      'pricePerPerson': priceController.text.trim().isEmpty
-          ? '0'
-          : priceController.text.trim(),
-    });
+    Navigator.pop(
+      context,
+      CreateFoodPackageRequest(
+        name: name,
+        description: description,
+        pricePerHead: price,
+      ),
+    );
   }
 
   @override
@@ -67,10 +85,10 @@ class _AddFoodPackageDialogState extends State<AddFoodPackageDialog> {
             ),
             const SizedBox(height: AppSizes.md),
             TextField(
-              controller: itemsController,
+              controller: descriptionController,
               maxLines: 2,
               decoration: const InputDecoration(
-                labelText: "Items (comma separated)",
+                labelText: "Description *",
                 hintText: "Chicken Karahi, Biryani, Sweet Dish",
               ),
             ),
@@ -79,10 +97,17 @@ class _AddFoodPackageDialogState extends State<AddFoodPackageDialog> {
               controller: priceController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "Price Per Person (PKR)",
+                labelText: "Price Per Head (PKR)",
                 hintText: "1500",
               ),
             ),
+            if (_errorText != null) ...[
+              const SizedBox(height: AppSizes.sm),
+              Text(
+                _errorText!,
+                style: const TextStyle(color: AppColors.error, fontSize: 13),
+              ),
+            ],
             const SizedBox(height: AppSizes.lg),
             Row(
               children: [
@@ -93,9 +118,7 @@ class _AddFoodPackageDialogState extends State<AddFoodPackageDialog> {
                   ),
                 ),
                 const SizedBox(width: AppSizes.sm),
-                Expanded(
-                  child: GradientButton(label: "Add", onPressed: save),
-                ),
+                Expanded(child: GradientButton(label: "Add", onPressed: save)),
               ],
             ),
           ],

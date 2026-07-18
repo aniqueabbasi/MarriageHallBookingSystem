@@ -1,21 +1,18 @@
 import 'package:flutter/material.dart';
 
+import 'package:marriage_hall_app/models/halls/extra_service.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 
 class ExtraServiceRow extends StatelessWidget {
-  final String name;
-  final TextEditingController priceController;
-  final bool enabled;
-  final ValueChanged<bool> onToggle;
-  final VoidCallback onDelete;
+  final ExtraService service;
+  final bool isDeleting;
+  final VoidCallback? onDelete;
 
   const ExtraServiceRow({
     super.key,
-    required this.name,
-    required this.priceController,
-    required this.enabled,
-    required this.onToggle,
+    required this.service,
+    required this.isDeleting,
     required this.onDelete,
   });
 
@@ -25,7 +22,7 @@ class ExtraServiceRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSizes.sm),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSizes.md,
-        vertical: AppSizes.xs,
+        vertical: AppSizes.sm,
       ),
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -34,35 +31,46 @@ class ExtraServiceRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            flex: 3,
-            child: Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  service.name,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                if (service.description.isNotEmpty)
+                  Text(
+                    service.description,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+              ],
             ),
           ),
-          Expanded(
-            flex: 2,
-            child: TextField(
-              controller: priceController,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(fontSize: 14),
-              decoration: const InputDecoration(
-                isDense: true,
-                prefixText: "PKR ",
-                border: InputBorder.none,
-              ),
-            ),
+          Text(
+            "PKR ${service.price.toStringAsFixed(0)}",
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          Switch(
-            value: enabled,
-            onChanged: onToggle,
-            activeThumbColor: AppColors.primary,
-          ),
-          IconButton(
-            onPressed: onDelete,
-            icon: const Icon(Icons.close, size: 18, color: AppColors.error),
-            visualDensity: VisualDensity.compact,
-          ),
+          isDeleting
+              ? const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  onPressed: onDelete,
+                  icon: const Icon(
+                    Icons.close,
+                    size: 18,
+                    color: AppColors.error,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
         ],
       ),
     );

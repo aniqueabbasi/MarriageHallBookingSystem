@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:marriage_hall_app/constants/lists.dart';
+import 'package:marriage_hall_app/models/halls/create_extra_service_request.dart';
+import 'package:marriage_hall_app/models/halls/create_food_package_request.dart';
 
 /// Key identifying a single [AddEditHallScreen] instance's form state:
 /// a unique per-instance token paired with the (identity-stable) initial
@@ -17,13 +20,16 @@ class HallFormState {
   final bool hasCatering;
   final String advancePaymentType;
   final int advancePercentage;
-  final List<Map<String, dynamic>> foodPackages;
-  final List<String> extraServiceNames;
-  final List<bool> extraServiceEnabled;
-  final List<String> images;
-  final String? virtualTourImage;
   final List<String> availableDays;
   final List<String> selectedTimeSlots;
+  final bool isActive;
+
+  /// Create-mode-only staging: nothing is uploaded/submitted until the
+  /// hall itself is saved, since food packages/extra services/images can
+  /// now only be set at creation via the same multipart POST as the hall.
+  final List<XFile> pickedImages;
+  final List<CreateFoodPackageRequest> stagedFoodPackages;
+  final List<CreateExtraServiceRequest> stagedExtraServices;
 
   const HallFormState({
     required this.selectedCity,
@@ -35,31 +41,15 @@ class HallFormState {
     required this.hasCatering,
     required this.advancePaymentType,
     required this.advancePercentage,
-    required this.foodPackages,
-    required this.extraServiceNames,
-    required this.extraServiceEnabled,
-    required this.images,
-    required this.virtualTourImage,
     required this.availableDays,
     required this.selectedTimeSlots,
+    this.isActive = true,
+    this.pickedImages = const [],
+    this.stagedFoodPackages = const [],
+    this.stagedExtraServices = const [],
   });
 
   factory HallFormState.fromHall(Map<String, dynamic> hall) {
-    final existingServices = List<Map<String, dynamic>>.from(
-      (hall['extraServices'] as List?) ?? const [],
-    );
-    final names = [...defaultExtraServiceNames];
-    for (final service in existingServices) {
-      if (!names.contains(service['name'])) {
-        names.add(service['name']);
-      }
-    }
-    final enabled = names.map((name) {
-      final match = existingServices.where((e) => e['name'] == name);
-      if (match.isEmpty) return false;
-      return match.first['enabled'] == true;
-    }).toList();
-
     return HallFormState(
       selectedCity: hall['city'] ?? 'Lahore',
       parkingSpaces: int.tryParse('${hall['parkingSpaces']}') ?? 50,
@@ -71,22 +61,13 @@ class HallFormState {
       advancePaymentType: hall['advancePaymentType'] ?? 'percentage',
       advancePercentage:
           int.tryParse('${hall['advancePercentage'] ?? 20}') ?? 20,
-      foodPackages: List<Map<String, dynamic>>.from(
-        (hall['foodPackages'] as List?) ?? const [],
-      ),
-      extraServiceNames: names,
-      extraServiceEnabled: enabled,
-      images: List<String>.from(
-        (hall['images'] as List?) ??
-            (hall['imagePath'] != null ? [hall['imagePath']] : const []),
-      ),
-      virtualTourImage: hall['virtualTourImage'] as String?,
       availableDays: List<String>.from(
         (hall['availableDays'] as List?) ?? const ['Sat', 'Sun'],
       ),
       selectedTimeSlots: List<String>.from(
         (hall['timeSlots'] as List?) ?? const ['day'],
       ),
+      isActive: hall['isActive'] ?? true,
     );
   }
 
@@ -100,13 +81,12 @@ class HallFormState {
     bool? hasCatering,
     String? advancePaymentType,
     int? advancePercentage,
-    List<Map<String, dynamic>>? foodPackages,
-    List<String>? extraServiceNames,
-    List<bool>? extraServiceEnabled,
-    List<String>? images,
-    Object? virtualTourImage = _unset,
     List<String>? availableDays,
     List<String>? selectedTimeSlots,
+    bool? isActive,
+    List<XFile>? pickedImages,
+    List<CreateFoodPackageRequest>? stagedFoodPackages,
+    List<CreateExtraServiceRequest>? stagedExtraServices,
   }) {
     return HallFormState(
       selectedCity: selectedCity ?? this.selectedCity,
@@ -118,20 +98,15 @@ class HallFormState {
       hasCatering: hasCatering ?? this.hasCatering,
       advancePaymentType: advancePaymentType ?? this.advancePaymentType,
       advancePercentage: advancePercentage ?? this.advancePercentage,
-      foodPackages: foodPackages ?? this.foodPackages,
-      extraServiceNames: extraServiceNames ?? this.extraServiceNames,
-      extraServiceEnabled: extraServiceEnabled ?? this.extraServiceEnabled,
-      images: images ?? this.images,
-      virtualTourImage: identical(virtualTourImage, _unset)
-          ? this.virtualTourImage
-          : virtualTourImage as String?,
       availableDays: availableDays ?? this.availableDays,
       selectedTimeSlots: selectedTimeSlots ?? this.selectedTimeSlots,
+      isActive: isActive ?? this.isActive,
+      pickedImages: pickedImages ?? this.pickedImages,
+      stagedFoodPackages: stagedFoodPackages ?? this.stagedFoodPackages,
+      stagedExtraServices: stagedExtraServices ?? this.stagedExtraServices,
     );
   }
 }
-
-const Object _unset = Object();
 
 class HallFormController extends Notifier<HallFormState> {
   final HallFormKey arg;
@@ -174,52 +149,40 @@ class HallFormController extends Notifier<HallFormState> {
     }
   }
 
-  void addFoodPackage(Map<String, dynamic> package) {
-    state = state.copyWith(foodPackages: [...state.foodPackages, package]);
-  }
-
-  void removeFoodPackageAt(int index) {
-    final updated = [...state.foodPackages]..removeAt(index);
-    state = state.copyWith(foodPackages: updated);
-  }
-
-  void addExtraService(String name) {
+  void addPickedImages(List<XFile> images) {
+    final room = hallFormMaxImages - state.pickedImages.length;
+    if (room <= 0) return;
     state = state.copyWith(
-      extraServiceNames: [...state.extraServiceNames, name],
-      extraServiceEnabled: [...state.extraServiceEnabled, true],
+      pickedImages: [...state.pickedImages, ...images.take(room)],
     );
   }
 
-  void toggleExtraServiceEnabled(int index, bool value) {
-    final updated = [...state.extraServiceEnabled];
-    updated[index] = value;
-    state = state.copyWith(extraServiceEnabled: updated);
+  void removePickedImageAt(int index) {
+    final updated = [...state.pickedImages]..removeAt(index);
+    state = state.copyWith(pickedImages: updated);
   }
 
-  void removeExtraServiceAt(int index) {
-    final names = [...state.extraServiceNames]..removeAt(index);
-    final enabled = [...state.extraServiceEnabled]..removeAt(index);
+  void addStagedFoodPackage(CreateFoodPackageRequest request) {
     state = state.copyWith(
-      extraServiceNames: names,
-      extraServiceEnabled: enabled,
+      stagedFoodPackages: [...state.stagedFoodPackages, request],
     );
   }
 
-  void addImage(String path) {
-    if (state.images.length >= hallFormMaxImages) return;
-    state = state.copyWith(images: [...state.images, path]);
+  void removeStagedFoodPackageAt(int index) {
+    final updated = [...state.stagedFoodPackages]..removeAt(index);
+    state = state.copyWith(stagedFoodPackages: updated);
   }
 
-  void removeImageAt(int index) {
-    final updated = [...state.images]..removeAt(index);
-    state = state.copyWith(images: updated);
+  void addStagedExtraService(CreateExtraServiceRequest request) {
+    state = state.copyWith(
+      stagedExtraServices: [...state.stagedExtraServices, request],
+    );
   }
 
-  void setVirtualTourImage(String path) =>
-      state = state.copyWith(virtualTourImage: path);
-
-  void removeVirtualTourImage() =>
-      state = state.copyWith(virtualTourImage: null);
+  void removeStagedExtraServiceAt(int index) {
+    final updated = [...state.stagedExtraServices]..removeAt(index);
+    state = state.copyWith(stagedExtraServices: updated);
+  }
 
   void toggleAvailableDay(String day) {
     final updated = [...state.availableDays];
@@ -232,6 +195,8 @@ class HallFormController extends Notifier<HallFormState> {
     if (!updated.remove(slotId)) updated.add(slotId);
     state = state.copyWith(selectedTimeSlots: updated);
   }
+
+  void setIsActive(bool value) => state = state.copyWith(isActive: value);
 }
 
 final hallFormControllerProvider = NotifierProvider.autoDispose
