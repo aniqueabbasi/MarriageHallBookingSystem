@@ -34,12 +34,14 @@ namespace marriage_hall_backend.Controllers
 
         [HttpPost]
         [Authorize(Roles = "HallOwner,Admin")]
-        public async Task<ActionResult<HallDetailDto>> Create(CreateHallDto dto)
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult<HallDetailDto>> Create([FromForm] CreateHallDto dto)
             => Ok(await _hallService.CreateAsync(User.GetUserId(), dto));
 
         [HttpPut("{id:int}")]
         [Authorize(Roles = "HallOwner,Admin")]
-        public async Task<ActionResult<HallDetailDto>> Update(int id, UpdateHallDto dto)
+        [Consumes("multipart/form-data")]
+        public async Task<ActionResult<HallDetailDto>> Update(int id, [FromForm] UpdateHallDto dto)
             => Ok(await _hallService.UpdateAsync(id, User.GetUserId(), User.GetRole(), dto));
 
         [HttpDelete("{id:int}")]
@@ -50,24 +52,33 @@ namespace marriage_hall_backend.Controllers
             return NoContent();
         }
 
-        [HttpPost("{id:int}/images")]
+        [HttpDelete("{hallId:int}/food-packages/{packageId:int}")]
         [Authorize(Roles = "HallOwner,Admin")]
-        public async Task<ActionResult<HallImageDto>> AddImage(int id, CreateHallImageDto dto)
-            => Ok(await _hallService.AddImageAsync(id, User.GetUserId(), User.GetRole(), dto));
+        public async Task<IActionResult> DeleteFoodPackage(int hallId, int packageId)
+        {
+            await _hallService.DeleteFoodPackageAsync(hallId, packageId, User.GetUserId(), User.GetRole());
+            return NoContent();
+        }
 
-        [HttpPost("{id:int}/food-packages")]
+        [HttpDelete("{hallId:int}/extra-services/{serviceId:int}")]
         [Authorize(Roles = "HallOwner,Admin")]
-        public async Task<ActionResult<FoodPackageDto>> AddFoodPackage(int id, CreateFoodPackageDto dto)
-            => Ok(await _hallService.AddFoodPackageAsync(id, User.GetUserId(), User.GetRole(), dto));
-
-        [HttpPost("{id:int}/extra-services")]
-        [Authorize(Roles = "HallOwner,Admin")]
-        public async Task<ActionResult<ExtraServiceDto>> AddExtraService(int id, CreateExtraServiceDto dto)
-            => Ok(await _hallService.AddExtraServiceAsync(id, User.GetUserId(), User.GetRole(), dto));
+        public async Task<IActionResult> DeleteExtraService(int hallId, int serviceId)
+        {
+            await _hallService.DeleteExtraServiceAsync(hallId, serviceId, User.GetUserId(), User.GetRole());
+            return NoContent();
+        }
 
         [HttpPost("{id:int}/virtual-tours")]
         [Authorize(Roles = "HallOwner,Admin")]
         public async Task<ActionResult<VirtualTourDto>> AddVirtualTour(int id, CreateVirtualTourDto dto)
             => Ok(await _hallService.AddVirtualTourAsync(id, User.GetUserId(), User.GetRole(), dto));
+
+        [HttpDelete("{hallId:int}/virtual-tours/{tourId:int}")]
+        [Authorize(Roles = "HallOwner,Admin")]
+        public async Task<IActionResult> DeleteVirtualTour(int hallId, int tourId)
+        {
+            await _hallService.DeleteVirtualTourAsync(hallId, tourId, User.GetUserId(), User.GetRole());
+            return NoContent();
+        }
     }
 }

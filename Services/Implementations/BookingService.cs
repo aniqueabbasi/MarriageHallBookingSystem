@@ -43,6 +43,9 @@ namespace marriage_hall_backend.Services.Implementations
             {
                 foodPackage = await _db.FoodPackages.SingleOrDefaultAsync(f => f.Id == dto.FoodPackageId && f.HallId == dto.HallId)
                     ?? throw new BadRequestException("Selected food package does not belong to this hall.");
+
+                if (!foodPackage.IsActive)
+                    throw new BadRequestException("This food package is no longer offered. Please refresh and select again.");
             }
 
             var distinctExtraServiceIds = dto.ExtraServiceIds.Distinct().ToList();
@@ -51,6 +54,9 @@ namespace marriage_hall_backend.Services.Implementations
                 .ToListAsync();
             if (extraServices.Count != distinctExtraServiceIds.Count)
                 throw new BadRequestException("One or more selected extra services do not belong to this hall.");
+
+            if (extraServices.Any(e => !e.IsActive))
+                throw new BadRequestException("This extra service is no longer offered. Please refresh and select again.");
 
             var hasConflict = await _db.Bookings.AnyAsync(b =>
                 b.HallId == dto.HallId &&

@@ -21,7 +21,6 @@ namespace marriage_hall_backend.Data
         public DbSet<Review> Reviews => Set<Review>();
         public DbSet<Favorite> Favorites => Set<Favorite>();
         public DbSet<Notification> Notifications => Set<Notification>();
-        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -54,6 +53,8 @@ namespace marriage_hall_backend.Data
             // ---- VirtualTour ----
             modelBuilder.Entity<VirtualTour>(entity =>
             {
+                entity.Property(t => t.IsActive).HasDefaultValue(true);
+
                 entity.HasOne(t => t.Hall)
                     .WithMany(h => h.VirtualTours)
                     .HasForeignKey(t => t.HallId)
@@ -64,6 +65,7 @@ namespace marriage_hall_backend.Data
             modelBuilder.Entity<FoodPackage>(entity =>
             {
                 entity.Property(f => f.PricePerHead).HasPrecision(12, 2);
+                entity.Property(f => f.IsActive).HasDefaultValue(true);
 
                 entity.HasOne(f => f.Hall)
                     .WithMany(h => h.FoodPackages)
@@ -75,6 +77,7 @@ namespace marriage_hall_backend.Data
             modelBuilder.Entity<ExtraService>(entity =>
             {
                 entity.Property(e => e.Price).HasPrecision(12, 2);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
 
                 entity.HasOne(e => e.Hall)
                     .WithMany(h => h.ExtraServices)
@@ -174,17 +177,6 @@ namespace marriage_hall_backend.Data
                 entity.HasOne(n => n.User)
                     .WithMany(u => u.Notifications)
                     .HasForeignKey(n => n.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            // ---- RefreshToken ----
-            modelBuilder.Entity<RefreshToken>(entity =>
-            {
-                entity.HasIndex(t => t.Token).IsUnique();
-
-                entity.HasOne(t => t.User)
-                    .WithMany(u => u.RefreshTokens)
-                    .HasForeignKey(t => t.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

@@ -22,16 +22,5 @@ namespace marriage_hall_backend.Controllers
         [HttpPost("login")]
         public async Task<ActionResult<TokenResponseDto>> Login(LoginDto dto)
             => Ok(await _authService.LoginAsync(dto));
-
-        [HttpPost("refresh")]
-        public async Task<ActionResult<TokenResponseDto>> Refresh(RefreshTokenRequestDto dto)
-            => Ok(await _authService.RefreshTokenAsync(dto.RefreshToken));
-
-        [HttpPost("revoke")]
-        public async Task<IActionResult> Revoke(RefreshTokenRequestDto dto)
-        {
-            await _authService.RevokeRefreshTokenAsync(dto.RefreshToken);
-            return NoContent();
-        }
     }
 }

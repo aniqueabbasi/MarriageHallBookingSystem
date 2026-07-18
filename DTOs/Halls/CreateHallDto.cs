@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace marriage_hall_backend.DTOs.Halls
 {
@@ -21,5 +22,13 @@ namespace marriage_hall_backend.DTOs.Halls
 
         [Range(0, double.MaxValue)]
         public decimal PricePerDay { get; set; }
+
+        public List<IFormFile> Images { get; set; } = new();
+
+        /// <summary>JSON-encoded array of food packages, e.g. [{"name":"Gold","description":"...","pricePerHead":500}]</summary>
+        public string? FoodPackages { get; set; }
+
+        /// <summary>JSON-encoded array of extra services, e.g. [{"name":"DJ","description":"...","price":10000}]</summary>
+        public string? ExtraServices { get; set; }
     }
 }

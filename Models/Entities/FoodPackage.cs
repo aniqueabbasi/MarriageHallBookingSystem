@@ -9,6 +9,7 @@ namespace marriage_hall_backend.Models.Entities
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public decimal PricePerHead { get; set; }
+        public bool IsActive { get; set; } = true;
 
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
     }

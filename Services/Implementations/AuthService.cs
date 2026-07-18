@@ -52,47 +52,13 @@ namespace marriage_hall_backend.Services.Implementations
             return await IssueTokensAsync(user);
         }
 
-        public async Task<TokenResponseDto> RefreshTokenAsync(string refreshToken)
-        {
-            var storedToken = await _db.RefreshTokens
-                .Include(t => t.User)
-                .SingleOrDefaultAsync(t => t.Token == refreshToken);
-
-            if (storedToken is null || !storedToken.IsActive)
-                throw new UnauthorizedException("Invalid or expired refresh token.");
-
-            storedToken.RevokedAt = DateTime.UtcNow;
-
-            return await IssueTokensAsync(storedToken.User);
-        }
-
-        public async Task RevokeRefreshTokenAsync(string refreshToken)
-        {
-            var storedToken = await _db.RefreshTokens.SingleOrDefaultAsync(t => t.Token == refreshToken);
-            if (storedToken is null || !storedToken.IsActive)
-                return;
-
-            storedToken.RevokedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-        }
-
         private async Task<TokenResponseDto> IssueTokensAsync(User user)
         {
             var (accessToken, expiresAt) = _jwtHelper.GenerateAccessToken(user);
-            var refreshToken = new RefreshToken
-            {
-                UserId = user.Id,
-                Token = _jwtHelper.GenerateRefreshToken(),
-                ExpiresAt = DateTime.UtcNow.AddDays(_jwtHelper.RefreshTokenExpiryDays)
-            };
-
-            _db.RefreshTokens.Add(refreshToken);
-            await _db.SaveChangesAsync();
 
             return new TokenResponseDto
             {
                 AccessToken = accessToken,
-                RefreshToken = refreshToken.Token,
                 ExpiresAt = expiresAt,
                 User = new UserDto
                 {

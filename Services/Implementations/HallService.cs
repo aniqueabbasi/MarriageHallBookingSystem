@@ -1,20 +1,35 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using marriage_hall_backend.Data;
 using marriage_hall_backend.DTOs.Halls;
 using marriage_hall_backend.Helpers;
 using marriage_hall_backend.Models.Entities;
 using marriage_hall_backend.Models.Enums;
 using marriage_hall_backend.Services.Interfaces;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace marriage_hall_backend.Services.Implementations
 {
     public class HallService : IHallService
     {
-        private readonly AppDbContext _db;
+        private const long MaxImageSizeBytes = 5 * 1024 * 1024;
 
-        public HallService(AppDbContext db)
+        private static readonly Dictionary<string, string> AllowedImageExtensions = new()
+        {
+            ["image/jpeg"] = ".jpg",
+            ["image/png"] = ".png",
+            ["image/webp"] = ".webp"
+        };
+
+        private readonly AppDbContext _db;
+        private readonly IWebHostEnvironment _env;
+
+        public HallService(AppDbContext db, IWebHostEnvironment env)
         {
             _db = db;
+            _env = env;
         }
 
         public async Task<List<HallListDto>> SearchAsync(string? city, int? minCapacity, decimal? maxPrice)
@@ -37,9 +52,9 @@ namespace marriage_hall_backend.Services.Implementations
             var hall = await _db.Halls
                 .Include(h => h.Owner)
                 .Include(h => h.Images)
-                .Include(h => h.VirtualTours)
-                .Include(h => h.FoodPackages)
-                .Include(h => h.ExtraServices)
+                .Include(h => h.VirtualTours.Where(t => t.IsActive))
+                .Include(h => h.FoodPackages.Where(f => f.IsActive))
+                .Include(h => h.ExtraServices.Where(e => e.IsActive))
                 .Include(h => h.Reviews)
                 .SingleOrDefaultAsync(h => h.Id == hallId)
                 ?? throw new NotFoundException("Hall not found.");
@@ -60,6 +75,13 @@ namespace marriage_hall_backend.Services.Implementations
 
         public async Task<HallDetailDto> CreateAsync(int ownerId, CreateHallDto dto)
         {
+            if (dto.Images is null || dto.Images.Count == 0)
+                throw new BadRequestException("At least one image is required.");
+
+            var extensions = ValidateImages(dto.Images);
+            var foodPackages = ParseJsonArray<CreateFoodPackageDto>(dto.FoodPackages, "FoodPackages");
+            var extraServices = ParseJsonArray<CreateExtraServiceDto>(dto.ExtraServices, "ExtraServices");
+
             var hall = new Hall
             {
                 OwnerId = ownerId,
@@ -74,7 +96,80 @@ namespace marriage_hall_backend.Services.Implementations
             _db.Halls.Add(hall);
             await _db.SaveChangesAsync();
 
+            await SaveImagesAsync(hall.Id, dto.Images, extensions, markFirstAsPrimary: true);
+
+            foreach (var fp in foodPackages)
+                _db.FoodPackages.Add(new FoodPackage { HallId = hall.Id, Name = fp.Name, Description = fp.Description, PricePerHead = fp.PricePerHead });
+
+            foreach (var es in extraServices)
+                _db.ExtraServices.Add(new ExtraService { HallId = hall.Id, Name = es.Name, Description = es.Description, Price = es.Price });
+
+            await _db.SaveChangesAsync();
+
             return await GetByIdAsync(hall.Id);
+        }
+
+        private static string[] ValidateImages(List<IFormFile> images)
+        {
+            var extensions = new string[images.Count];
+            for (var i = 0; i < images.Count; i++)
+            {
+                var image = images[i];
+                if (image.Length == 0)
+                    throw new BadRequestException("An uploaded image file is empty.");
+                if (image.Length > MaxImageSizeBytes)
+                    throw new BadRequestException("Each image must not exceed 5MB.");
+                if (!AllowedImageExtensions.TryGetValue(image.ContentType, out var extension))
+                    throw new BadRequestException("Only JPEG, PNG, and WEBP images are allowed.");
+
+                extensions[i] = extension;
+            }
+
+            return extensions;
+        }
+
+        private async Task SaveImagesAsync(int hallId, List<IFormFile> images, string[] extensions, bool markFirstAsPrimary)
+        {
+            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "halls");
+            Directory.CreateDirectory(uploadsDir);
+
+            for (var i = 0; i < images.Count; i++)
+            {
+                var fileName = $"{Guid.NewGuid():N}{extensions[i]}";
+                await using (var stream = new FileStream(Path.Combine(uploadsDir, fileName), FileMode.Create))
+                {
+                    await images[i].CopyToAsync(stream);
+                }
+
+                _db.HallImages.Add(new HallImage { HallId = hallId, ImageUrl = $"/uploads/halls/{fileName}", IsPrimary = markFirstAsPrimary && i == 0 });
+            }
+        }
+
+        private static List<T> ParseJsonArray<T>(string? json, string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return new List<T>();
+
+            List<T>? items;
+            try
+            {
+                items = JsonSerializer.Deserialize<List<T>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            }
+            catch (JsonException)
+            {
+                throw new BadRequestException($"{fieldName} must be a valid JSON array, e.g. [{{\"name\":\"...\"}}].");
+            }
+
+            items ??= new List<T>();
+
+            foreach (var item in items)
+            {
+                var results = new List<ValidationResult>();
+                if (!Validator.TryValidateObject(item!, new ValidationContext(item!), results, validateAllProperties: true))
+                    throw new BadRequestException($"Invalid {fieldName} entry: {results[0].ErrorMessage}");
+            }
+
+            return items;
         }
 
         public async Task<HallDetailDto> UpdateAsync(int hallId, int actingUserId, UserRole actingRole, UpdateHallDto dto)
@@ -83,6 +178,10 @@ namespace marriage_hall_backend.Services.Implementations
                 ?? throw new NotFoundException("Hall not found.");
 
             EnsureCanManage(hall, actingUserId, actingRole);
+
+            var extensions = ValidateImages(dto.Images);
+            var foodPackages = ParseJsonArray<CreateFoodPackageDto>(dto.FoodPackages, "FoodPackages");
+            var extraServices = ParseJsonArray<CreateExtraServiceDto>(dto.ExtraServices, "ExtraServices");
 
             hall.Name = dto.Name;
             hall.Description = dto.Description;
@@ -93,9 +192,27 @@ namespace marriage_hall_backend.Services.Implementations
             hall.IsActive = dto.IsActive;
             hall.UpdatedAt = DateTime.UtcNow;
 
-            await _db.SaveChangesAsync();
+            var existingFoodPackages = await _db.FoodPackages.Where(f => f.HallId == hallId && f.IsActive).ToListAsync();
+            foreach (var existing in existingFoodPackages)
+                existing.IsActive = false;
 
-            return await GetByIdAsync(hall.Id);
+            foreach (var fp in foodPackages)
+                _db.FoodPackages.Add(new FoodPackage { HallId = hallId, Name = fp.Name, Description = fp.Description, PricePerHead = fp.PricePerHead });
+
+            var existingExtraServices = await _db.ExtraServices.Where(e => e.HallId == hallId && e.IsActive).ToListAsync();
+            foreach (var existing in existingExtraServices)
+                existing.IsActive = false;
+
+            foreach (var es in extraServices)
+                _db.ExtraServices.Add(new ExtraService { HallId = hallId, Name = es.Name, Description = es.Description, Price = es.Price });
+
+            if (dto.Images.Count > 0)
+                await SaveImagesAsync(hallId, dto.Images, extensions, markFirstAsPrimary: false);
+
+            await _db.SaveChangesAsync();
+            _db.ChangeTracker.Clear();
+
+            return await GetByIdAsync(hallId);
         }
 
         public async Task DeleteAsync(int hallId, int actingUserId, UserRole actingRole)
@@ -113,41 +230,32 @@ namespace marriage_hall_backend.Services.Implementations
             await _db.SaveChangesAsync();
         }
 
-        public async Task<HallImageDto> AddImageAsync(int hallId, int actingUserId, UserRole actingRole, CreateHallImageDto dto)
+        public async Task DeleteFoodPackageAsync(int hallId, int packageId, int actingUserId, UserRole actingRole)
         {
-            var hall = await GetHallForManagementAsync(hallId, actingUserId, actingRole);
+            var hall = await _db.Halls.SingleOrDefaultAsync(h => h.Id == hallId)
+                ?? throw new NotFoundException("Hall not found.");
 
-            if (dto.IsPrimary)
-                foreach (var img in hall.Images)
-                    img.IsPrimary = false;
+            EnsureCanManage(hall, actingUserId, actingRole);
 
-            var image = new HallImage { HallId = hallId, ImageUrl = dto.ImageUrl, IsPrimary = dto.IsPrimary };
-            _db.HallImages.Add(image);
+            var package = await _db.FoodPackages.SingleOrDefaultAsync(f => f.Id == packageId && f.HallId == hallId)
+                ?? throw new NotFoundException("Food package not found.");
+
+            package.IsActive = false;
             await _db.SaveChangesAsync();
-
-            return new HallImageDto { Id = image.Id, ImageUrl = image.ImageUrl, IsPrimary = image.IsPrimary };
         }
 
-        public async Task<FoodPackageDto> AddFoodPackageAsync(int hallId, int actingUserId, UserRole actingRole, CreateFoodPackageDto dto)
+        public async Task DeleteExtraServiceAsync(int hallId, int serviceId, int actingUserId, UserRole actingRole)
         {
-            await GetHallForManagementAsync(hallId, actingUserId, actingRole);
+            var hall = await _db.Halls.SingleOrDefaultAsync(h => h.Id == hallId)
+                ?? throw new NotFoundException("Hall not found.");
 
-            var package = new FoodPackage { HallId = hallId, Name = dto.Name, Description = dto.Description, PricePerHead = dto.PricePerHead };
-            _db.FoodPackages.Add(package);
+            EnsureCanManage(hall, actingUserId, actingRole);
+
+            var service = await _db.ExtraServices.SingleOrDefaultAsync(e => e.Id == serviceId && e.HallId == hallId)
+                ?? throw new NotFoundException("Extra service not found.");
+
+            service.IsActive = false;
             await _db.SaveChangesAsync();
-
-            return new FoodPackageDto { Id = package.Id, Name = package.Name, Description = package.Description, PricePerHead = package.PricePerHead };
-        }
-
-        public async Task<ExtraServiceDto> AddExtraServiceAsync(int hallId, int actingUserId, UserRole actingRole, CreateExtraServiceDto dto)
-        {
-            await GetHallForManagementAsync(hallId, actingUserId, actingRole);
-
-            var service = new ExtraService { HallId = hallId, Name = dto.Name, Description = dto.Description, Price = dto.Price };
-            _db.ExtraServices.Add(service);
-            await _db.SaveChangesAsync();
-
-            return new ExtraServiceDto { Id = service.Id, Name = service.Name, Description = service.Description, Price = service.Price };
         }
 
         public async Task<VirtualTourDto> AddVirtualTourAsync(int hallId, int actingUserId, UserRole actingRole, CreateVirtualTourDto dto)
@@ -159,6 +267,20 @@ namespace marriage_hall_backend.Services.Implementations
             await _db.SaveChangesAsync();
 
             return new VirtualTourDto { Id = tour.Id, Title = tour.Title, TourUrl = tour.TourUrl };
+        }
+
+        public async Task DeleteVirtualTourAsync(int hallId, int tourId, int actingUserId, UserRole actingRole)
+        {
+            var hall = await _db.Halls.SingleOrDefaultAsync(h => h.Id == hallId)
+                ?? throw new NotFoundException("Hall not found.");
+
+            EnsureCanManage(hall, actingUserId, actingRole);
+
+            var tour = await _db.VirtualTours.SingleOrDefaultAsync(t => t.Id == tourId && t.HallId == hallId)
+                ?? throw new NotFoundException("Virtual tour not found.");
+
+            tour.IsActive = false;
+            await _db.SaveChangesAsync();
         }
 
         private async Task<Hall> GetHallForManagementAsync(int hallId, int actingUserId, UserRole actingRole)

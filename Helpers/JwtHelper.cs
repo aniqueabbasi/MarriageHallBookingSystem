@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using marriage_hall_backend.Models.Entities;
 using Microsoft.IdentityModel.Tokens;
@@ -15,8 +14,6 @@ namespace marriage_hall_backend.Helpers
         {
             _configuration = configuration;
         }
-
-        public int RefreshTokenExpiryDays => int.Parse(_configuration["Jwt:RefreshTokenExpiryDays"] ?? "7");
 
         public (string Token, DateTime ExpiresAt) GenerateAccessToken(User user)
         {
@@ -46,7 +43,5 @@ namespace marriage_hall_backend.Helpers
 
             return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
         }
-
-        public string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
     }
 }

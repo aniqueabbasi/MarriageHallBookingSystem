@@ -11,9 +11,9 @@ namespace marriage_hall_backend.Services.Interfaces
         Task<HallDetailDto> CreateAsync(int ownerId, CreateHallDto dto);
         Task<HallDetailDto> UpdateAsync(int hallId, int actingUserId, UserRole actingRole, UpdateHallDto dto);
         Task DeleteAsync(int hallId, int actingUserId, UserRole actingRole);
-        Task<HallImageDto> AddImageAsync(int hallId, int actingUserId, UserRole actingRole, CreateHallImageDto dto);
-        Task<FoodPackageDto> AddFoodPackageAsync(int hallId, int actingUserId, UserRole actingRole, CreateFoodPackageDto dto);
-        Task<ExtraServiceDto> AddExtraServiceAsync(int hallId, int actingUserId, UserRole actingRole, CreateExtraServiceDto dto);
+        Task DeleteFoodPackageAsync(int hallId, int packageId, int actingUserId, UserRole actingRole);
+        Task DeleteExtraServiceAsync(int hallId, int serviceId, int actingUserId, UserRole actingRole);
         Task<VirtualTourDto> AddVirtualTourAsync(int hallId, int actingUserId, UserRole actingRole, CreateVirtualTourDto dto);
+        Task DeleteVirtualTourAsync(int hallId, int tourId, int actingUserId, UserRole actingRole);
     }
 }

@@ -6,7 +6,5 @@ namespace marriage_hall_backend.Services.Interfaces
     {
         Task<TokenResponseDto> RegisterAsync(RegisterDto dto);
         Task<TokenResponseDto> LoginAsync(LoginDto dto);
-        Task<TokenResponseDto> RefreshTokenAsync(string refreshToken);
-        Task RevokeRefreshTokenAsync(string refreshToken);
     }
 }
