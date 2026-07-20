@@ -5,10 +5,12 @@ import 'package:intl/intl.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
-import 'package:marriage_hall_app/controllers/booking/cnic_upload_controller.dart';
+import 'package:marriage_hall_app/controllers/cnic/cnic_scan_controller.dart';
 import 'package:marriage_hall_app/models/booking/booking.dart';
+import 'package:marriage_hall_app/screens/cnic/cnic_verification_screen.dart';
 import 'package:marriage_hall_app/utils/currency_formatter.dart';
 import 'package:marriage_hall_app/widgets/booking/advance_payment_breakdown.dart';
+import 'package:marriage_hall_app/widgets/cnic/cnic_scan_flow.dart';
 
 class BookingConfirmationScreen extends ConsumerStatefulWidget {
   final Booking booking;
@@ -39,6 +41,8 @@ class _BookingConfirmationScreenState
 
   late final String _instanceId = UniqueKey().toString();
 
+  bool _showCnicMissingError = false;
+
   @override
   void dispose() {
     phoneController.dispose();
@@ -65,30 +69,47 @@ class _BookingConfirmationScreenState
     return null;
   }
 
-  void pickCnicPicture() {
-    ref.read(cnicUploadControllerProvider(_instanceId).notifier).pickCnicPicture();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "CNIC picture selected (image picker isn't wired up in this UI-only build).",
-        ),
+  Future<void> openCnicScan() async {
+    await runCnicPickAndScan(
+      context: context,
+      ref: ref,
+      instanceId: _instanceId,
+    );
+    if (!mounted) return;
+
+    final hasImage =
+        ref.read(cnicScanControllerProvider(_instanceId)).selectedImagePath !=
+        null;
+    if (!hasImage) return; // user cancelled the picker
+
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CnicVerificationScreen(instanceId: _instanceId),
       ),
     );
+
+    if (!mounted) return;
+    if (saved == true) {
+      setState(() => _showCnicMissingError = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("CNIC details saved.")),
+      );
+    }
   }
 
-  void removeCnicPicture() {
-    ref.read(cnicUploadControllerProvider(_instanceId).notifier).removeCnicPicture();
+  void resetCnic() {
+    ref.read(cnicScanControllerProvider(_instanceId).notifier).reset();
   }
 
   void validateAndPay() {
-    final cnicNotifier = ref.read(cnicUploadControllerProvider(_instanceId).notifier);
-    final isCnicUploaded =
-        ref.read(cnicUploadControllerProvider(_instanceId)).cnicUploaded;
+    final isCnicSaved =
+        ref.read(cnicScanControllerProvider(_instanceId)).submitted;
 
     final isFormValid = _formKey.currentState?.validate() ?? false;
-    final isCnicMissing = !isCnicUploaded;
+    final isCnicMissing = !isCnicSaved;
 
-    cnicNotifier.setShowError(isCnicMissing);
+    setState(() => _showCnicMissingError = isCnicMissing);
 
     if (!isFormValid || isCnicMissing) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -113,7 +134,7 @@ class _BookingConfirmationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final cnicState = ref.watch(cnicUploadControllerProvider(_instanceId));
+    final cnicState = ref.watch(cnicScanControllerProvider(_instanceId));
     final booking = widget.booking;
     final remainingBalance = booking.totalAmount - booking.amountPaid;
     final advancePercentage = booking.totalAmount == 0
@@ -315,17 +336,18 @@ class _BookingConfirmationScreenState
                     ),
                     const SizedBox(height: AppSizes.md),
                     const Text(
-                      "CNIC Picture",
+                      "CNIC Verification",
                       style: TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: AppSizes.sm),
                     _CnicUploadTile(
-                      isUploaded: cnicState.cnicUploaded,
-                      hasError: cnicState.showCnicError,
-                      onUpload: pickCnicPicture,
-                      onRemove: removeCnicPicture,
+                      isUploaded: cnicState.submitted,
+                      maskedCnicNumber: cnicState.maskedCnicNumber,
+                      hasError: _showCnicMissingError,
+                      onUpload: openCnicScan,
+                      onRemove: resetCnic,
                     ),
-                    if (cnicState.showCnicError) ...[
+                    if (_showCnicMissingError) ...[
                       const SizedBox(height: 6),
                       const Text(
                         "You must fill this before proceeding to payment",
@@ -423,12 +445,14 @@ class _BookingConfirmationScreenState
 
 class _CnicUploadTile extends StatelessWidget {
   final bool isUploaded;
+  final String? maskedCnicNumber;
   final bool hasError;
   final VoidCallback onUpload;
   final VoidCallback onRemove;
 
   const _CnicUploadTile({
     required this.isUploaded,
+    this.maskedCnicNumber,
     required this.hasError,
     required this.onUpload,
     required this.onRemove,
@@ -449,10 +473,23 @@ class _CnicUploadTile extends StatelessWidget {
           children: [
             const Icon(Icons.check_circle, color: AppColors.success, size: 20),
             const SizedBox(width: AppSizes.sm),
-            const Expanded(
-              child: Text(
-                "CNIC picture selected",
-                style: TextStyle(fontWeight: FontWeight.w600),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "CNIC Verified",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  if (maskedCnicNumber != null)
+                    Text(
+                      maskedCnicNumber!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                ],
               ),
             ),
             TextButton(onPressed: onRemove, child: const Text("Remove")),
@@ -476,12 +513,12 @@ class _CnicUploadTile extends StatelessWidget {
         child: Row(
           children: [
             Icon(
-              Icons.add_a_photo_outlined,
+              Icons.document_scanner_outlined,
               color: hasError ? AppColors.error : AppColors.primary,
             ),
             const SizedBox(width: AppSizes.sm),
             Text(
-              "Upload CNIC Picture",
+              "Scan CNIC",
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: hasError ? AppColors.error : AppColors.textPrimary,

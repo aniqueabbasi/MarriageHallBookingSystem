@@ -11,6 +11,7 @@ import 'package:marriage_hall_app/models/user_role.dart';
 import 'package:marriage_hall_app/screens/admin/admin_bookings_screen.dart';
 import 'package:marriage_hall_app/screens/admin/admin_halls_screen.dart';
 import 'package:marriage_hall_app/screens/admin/admin_users_screen.dart';
+import 'package:marriage_hall_app/widgets/shared/shell_back_handler.dart';
 
 final adminTabIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -55,73 +56,77 @@ class AdminShellScreen extends ConsumerWidget {
 
     final currentIndex = ref.watch(adminTabIndexProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Admin Dashboard'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: 'Log out',
-            onPressed: () => logout(context, ref),
-            icon: const Icon(Icons.logout),
-          ),
-        ],
-      ),
-      body: IndexedStack(
-        index: currentIndex,
-        children: const [
-          AdminUsersScreen(),
-          AdminHallsScreen(),
-          AdminBookingsScreen(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppSizes.radiusXl),
-            topRight: Radius.circular(AppSizes.radiusXl),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
+    return ShellBackHandler(
+      isAtHome: currentIndex == 0,
+      onGoHome: () => ref.read(adminTabIndexProvider.notifier).state = 0,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Admin Dashboard'),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              tooltip: 'Log out',
+              onPressed: () => logout(context, ref),
+              icon: const Icon(Icons.logout),
             ),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppSizes.radiusXl),
-            topRight: Radius.circular(AppSizes.radiusXl),
-          ),
-          child: BottomNavigationBar(
-            currentIndex: currentIndex,
-            onTap: (index) =>
-                ref.read(adminTabIndexProvider.notifier).state = index,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.textSecondary,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.people_outline),
-                activeIcon: Icon(Icons.people),
-                label: 'Users',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.apartment_outlined),
-                activeIcon: Icon(Icons.apartment),
-                label: 'Halls',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.calendar_month_outlined),
-                activeIcon: Icon(Icons.calendar_month),
-                label: 'Bookings',
+        body: IndexedStack(
+          index: currentIndex,
+          children: const [
+            AdminUsersScreen(),
+            AdminHallsScreen(),
+            AdminBookingsScreen(),
+          ],
+        ),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppSizes.radiusXl),
+              topRight: Radius.circular(AppSizes.radiusXl),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, -6),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppSizes.radiusXl),
+              topRight: Radius.circular(AppSizes.radiusXl),
+            ),
+            child: BottomNavigationBar(
+              currentIndex: currentIndex,
+              onTap: (index) =>
+                  ref.read(adminTabIndexProvider.notifier).state = index,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textSecondary,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.people_outline),
+                  activeIcon: Icon(Icons.people),
+                  label: 'Users',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.apartment_outlined),
+                  activeIcon: Icon(Icons.apartment),
+                  label: 'Halls',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.calendar_month_outlined),
+                  activeIcon: Icon(Icons.calendar_month),
+                  label: 'Bookings',
+                ),
+              ],
+            ),
           ),
         ),
       ),

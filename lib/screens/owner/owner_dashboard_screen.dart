@@ -12,6 +12,7 @@ import 'package:marriage_hall_app/screens/owner/add_edit_hall_screen.dart';
 import 'package:marriage_hall_app/screens/owner/my_halls_screen.dart';
 import 'package:marriage_hall_app/screens/owner/owner_bookings_screen.dart';
 import 'package:marriage_hall_app/screens/owner/owner_profile_menu_screen.dart';
+import 'package:marriage_hall_app/widgets/shared/shell_back_handler.dart';
 
 final ownerTabIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -74,59 +75,63 @@ class OwnerDashboardScreen extends ConsumerWidget {
       const OwnerProfileMenuScreen(),
     ];
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: IndexedStack(index: currentIndex, children: tabs),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppSizes.radiusXl),
-            topRight: Radius.circular(AppSizes.radiusXl),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
+    return ShellBackHandler(
+      isAtHome: currentIndex == 0,
+      onGoHome: () => goToTab(0),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: IndexedStack(index: currentIndex, children: tabs),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppSizes.radiusXl),
+              topRight: Radius.circular(AppSizes.radiusXl),
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppSizes.radiusXl),
-            topRight: Radius.circular(AppSizes.radiusXl),
-          ),
-          child: BottomNavigationBar(
-            currentIndex: currentIndex,
-            onTap: goToTab,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.textSecondary,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard_outlined),
-                activeIcon: Icon(Icons.dashboard),
-                label: "Dashboard",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.storefront_outlined),
-                activeIcon: Icon(Icons.storefront),
-                label: "My Halls",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.event_note_outlined),
-                activeIcon: Icon(Icons.event_note),
-                label: "Bookings",
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
-                label: "Profile",
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, -6),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppSizes.radiusXl),
+              topRight: Radius.circular(AppSizes.radiusXl),
+            ),
+            child: BottomNavigationBar(
+              currentIndex: currentIndex,
+              onTap: goToTab,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textSecondary,
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.dashboard_outlined),
+                  activeIcon: Icon(Icons.dashboard),
+                  label: "Dashboard",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.storefront_outlined),
+                  activeIcon: Icon(Icons.storefront),
+                  label: "My Halls",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.event_note_outlined),
+                  activeIcon: Icon(Icons.event_note),
+                  label: "Bookings",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: "Profile",
+                ),
+              ],
+            ),
           ),
         ),
       ),

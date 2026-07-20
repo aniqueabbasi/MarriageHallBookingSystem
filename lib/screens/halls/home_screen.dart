@@ -73,62 +73,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final filteredPhotographers = ref.watch(filteredPhotographersProvider);
     final isHallCategory = filter.selectedCategory == AppStrings.hallCategory;
 
+    // A single CustomScrollView so the gradient header scrolls away with
+    // the rest of the page instead of staying pinned while only the list
+    // beneath it scrolls in its own Expanded region.
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: _buildHeader(context, filter, isHallCategory),
+          ),
+          SliverPadding(
             padding: const EdgeInsets.fromLTRB(
               AppSizes.md,
               AppSizes.md,
               AppSizes.md,
-              AppSizes.xl,
+              0,
             ),
-            decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(AppSizes.radiusXxl),
-                bottomRight: Radius.circular(AppSizes.radiusXxl),
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Find your perfect venue",
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    AppStrings.appName,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: AppSizes.lg),
-                  SearchBarWidget(
-                    controller: searchController,
-                    hintText: isHallCategory
-                        ? AppStrings.searchHint
-                        : AppStrings.searchHintPhotographer,
-                    isFilterActive: filter.selectedCity != AppStrings.all,
-                    onChanged: (value) {
-                      ref
-                          .read(homeFilterControllerProvider.notifier)
-                          .setSearchQuery(value);
-                    },
-                    onFilterTap: () => openCityFilter(filter.selectedCity),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSizes.md),
+            sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -148,97 +110,184 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   const SizedBox(height: AppSizes.md),
-                  Expanded(
-                    child: isHallCategory
-                        ? _buildHallList(filteredHallsAsync)
-                        : _buildPhotographerList(filteredPhotographers),
-                  ),
                 ],
               ),
             ),
           ),
+          ...isHallCategory
+              ? _hallSlivers(filteredHallsAsync)
+              : _photographerSlivers(filteredPhotographers),
+          const SliverToBoxAdapter(child: SizedBox(height: AppSizes.lg)),
         ],
       ),
     );
   }
 
-  Widget _buildHallList(AsyncValue<List<HallSummary>> filteredHallsAsync) {
-    return filteredHallsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Text('Could not load halls: ${error.toString()}'),
+  Widget _buildHeader(
+    BuildContext context,
+    HomeFilterState filter,
+    bool isHallCategory,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSizes.md,
+        AppSizes.md,
+        AppSizes.md,
+        AppSizes.xl,
       ),
+      decoration: const BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(AppSizes.radiusXxl),
+          bottomRight: Radius.circular(AppSizes.radiusXxl),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Find your perfect venue",
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              AppStrings.appName,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(color: Colors.white),
+            ),
+            const SizedBox(height: AppSizes.lg),
+            SearchBarWidget(
+              controller: searchController,
+              hintText: isHallCategory
+                  ? AppStrings.searchHint
+                  : AppStrings.searchHintPhotographer,
+              isFilterActive: filter.selectedCity != AppStrings.all,
+              onChanged: (value) {
+                ref
+                    .read(homeFilterControllerProvider.notifier)
+                    .setSearchQuery(value);
+              },
+              onFilterTap: () => openCityFilter(filter.selectedCity),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _hallSlivers(AsyncValue<List<HallSummary>> filteredHallsAsync) {
+    return filteredHallsAsync.when(
+      loading: () => const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
+      error: (error, stack) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: Text('Could not load halls: $error')),
+        ),
+      ],
       data: (filteredHalls) {
         if (filteredHalls.isEmpty) {
-          return const Center(child: Text('No halls found'));
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: Text('No halls found')),
+            ),
+          ];
         }
 
-        return ListView(
-          children: filteredHalls.map((hall) {
-            final hallIdString = hall.id.toString();
-            final isFavourite = widget.favoriteHallIds.contains(hallIdString);
-
-            return HallCard(
-              imageUrl: hall.primaryImageUrl,
-              hallName: hall.name,
-              location: hall.city,
-              pricePerDay: hall.pricePerDay,
-              capacity: hall.capacity,
-              rating: hall.averageRating,
-              reviews: hall.reviewCount,
-              isFavourite: isFavourite,
-              onFavouriteTap: () =>
-                  widget.onToggleHallFavorite(hallIdString),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => HallDetailScreen(hallId: hall.id),
-                  ),
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final hall = filteredHalls[index];
+                final hallIdString = hall.id.toString();
+                final isFavourite = widget.favoriteHallIds.contains(
+                  hallIdString,
                 );
-              },
-            );
-          }).toList(),
-        );
+
+                return HallCard(
+                  imageUrl: hall.primaryImageUrl,
+                  hallName: hall.name,
+                  location: hall.city,
+                  pricePerDay: hall.pricePerDay,
+                  capacity: hall.capacity,
+                  rating: hall.averageRating,
+                  reviews: hall.reviewCount,
+                  isFavourite: isFavourite,
+                  onFavouriteTap: () =>
+                      widget.onToggleHallFavorite(hallIdString),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HallDetailScreen(hallId: hall.id),
+                      ),
+                    );
+                  },
+                );
+              }, childCount: filteredHalls.length),
+            ),
+          ),
+        ];
       },
     );
   }
 
-  Widget _buildPhotographerList(
+  List<Widget> _photographerSlivers(
     List<Map<String, dynamic>> filteredPhotographers,
   ) {
     if (filteredPhotographers.isEmpty) {
-      return const Center(child: Text('No photographers found'));
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: Text('No photographers found')),
+        ),
+      ];
     }
 
-    return ListView(
-      children: filteredPhotographers.map((photographer) {
-        final isFavourite = widget.favoritePhotographerIds.contains(
-          photographer['id'],
-        );
-
-        return PhotographerCard(
-          profileImage: photographer['profileImage'],
-          name: photographer['name'],
-          specialty: photographer['specialty'],
-          city: photographer['city'],
-          rating: photographer['rating'],
-          reviews: photographer['reviews'],
-          startingPrice: photographer['startingPrice'],
-          isFavourite: isFavourite,
-          onFavouriteTap: () =>
-              widget.onTogglePhotographerFavorite(photographer['id']),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    PhotographerProfileScreen(photographer: photographer),
-              ),
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSizes.md),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final photographer = filteredPhotographers[index];
+            final isFavourite = widget.favoritePhotographerIds.contains(
+              photographer['id'],
             );
-          },
-        );
-      }).toList(),
-    );
+
+            return PhotographerCard(
+              profileImage: photographer['profileImage'],
+              name: photographer['name'],
+              specialty: photographer['specialty'],
+              city: photographer['city'],
+              rating: photographer['rating'],
+              reviews: photographer['reviews'],
+              startingPrice: photographer['startingPrice'],
+              isFavourite: isFavourite,
+              onFavouriteTap: () =>
+                  widget.onTogglePhotographerFavorite(photographer['id']),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        PhotographerProfileScreen(photographer: photographer),
+                  ),
+                );
+              },
+            );
+          }, childCount: filteredPhotographers.length),
+        ),
+      ),
+    ];
   }
 }

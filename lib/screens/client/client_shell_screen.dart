@@ -11,6 +11,7 @@ import 'package:marriage_hall_app/controllers/notifications/notifications_contro
 import 'package:marriage_hall_app/screens/halls/home_screen.dart';
 import 'package:marriage_hall_app/screens/notifications/notifications_screen.dart';
 import 'package:marriage_hall_app/screens/profile/profile_menu_screen.dart';
+import 'package:marriage_hall_app/widgets/shared/shell_back_handler.dart';
 
 const int _homeTabIndex = 2;
 
@@ -47,72 +48,76 @@ class ClientShellScreen extends ConsumerWidget {
       const ProfileMenuScreen(),
     ];
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: IndexedStack(index: currentIndex, children: tabs),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppSizes.radiusXl),
-            topRight: Radius.circular(AppSizes.radiusXl),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              blurRadius: 20,
-              offset: const Offset(0, -6),
+    return ShellBackHandler(
+      isAtHome: currentIndex == _homeTabIndex,
+      onGoHome: () => goToTab(_homeTabIndex),
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        body: IndexedStack(index: currentIndex, children: tabs),
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppSizes.radiusXl),
+              topRight: Radius.circular(AppSizes.radiusXl),
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(AppSizes.radiusXl),
-            topRight: Radius.circular(AppSizes.radiusXl),
-          ),
-          child: BottomNavigationBar(
-            currentIndex: currentIndex,
-            onTap: goToTab,
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            selectedItemColor: AppColors.primary,
-            unselectedItemColor: AppColors.textSecondary,
-            items: [
-              BottomNavigationBarItem(
-                icon: Badge(
-                  isLabelVisible: unreadCount > 0,
-                  label: Text('$unreadCount'),
-                  child: const Icon(Icons.notifications_none),
-                ),
-                activeIcon: Badge(
-                  isLabelVisible: unreadCount > 0,
-                  label: Text('$unreadCount'),
-                  child: const Icon(Icons.notifications),
-                ),
-                label: "Alerts",
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.favorite_border),
-                activeIcon: Icon(Icons.favorite),
-                label: "Favorites",
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home),
-                label: "Home",
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.event_note_outlined),
-                activeIcon: Icon(Icons.event_note),
-                label: "Bookings",
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
-                label: "Profile",
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                blurRadius: 20,
+                offset: const Offset(0, -6),
               ),
             ],
+          ),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(AppSizes.radiusXl),
+              topRight: Radius.circular(AppSizes.radiusXl),
+            ),
+            child: BottomNavigationBar(
+              currentIndex: currentIndex,
+              onTap: goToTab,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              selectedItemColor: AppColors.primary,
+              unselectedItemColor: AppColors.textSecondary,
+              items: [
+                BottomNavigationBarItem(
+                  icon: Badge(
+                    isLabelVisible: unreadCount > 0,
+                    label: Text('$unreadCount'),
+                    child: const Icon(Icons.notifications_none),
+                  ),
+                  activeIcon: Badge(
+                    isLabelVisible: unreadCount > 0,
+                    label: Text('$unreadCount'),
+                    child: const Icon(Icons.notifications),
+                  ),
+                  label: "Alerts",
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.favorite_border),
+                  activeIcon: Icon(Icons.favorite),
+                  label: "Favorites",
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home),
+                  label: "Home",
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.event_note_outlined),
+                  activeIcon: Icon(Icons.event_note),
+                  label: "Bookings",
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline),
+                  activeIcon: Icon(Icons.person),
+                  label: "Profile",
+                ),
+              ],
+            ),
           ),
         ),
       ),

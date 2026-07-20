@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Hall &amp; Feast needs access to your photos so hall owners can upload real photos of their venue.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hall &amp; Feast needs camera access to scan your CNIC and to let hall owners take photos of their venue.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

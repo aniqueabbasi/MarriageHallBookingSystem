@@ -7,19 +7,25 @@ import 'package:marriage_hall_app/resources/app_sizes.dart';
 class DatePickerField extends StatelessWidget {
   final DateTime? selectedDate;
   final ValueChanged<DateTime> onDateChanged;
+  final String hintText;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
 
   const DatePickerField({
     super.key,
     required this.selectedDate,
     required this.onDateChanged,
+    this.hintText = "Select Booking Date",
+    this.firstDate,
+    this.lastDate,
   });
 
   Future<void> pickDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2035),
+      firstDate: firstDate ?? DateTime.now(),
+      lastDate: lastDate ?? DateTime(2035),
     );
 
     if (picked != null) {
@@ -49,7 +55,7 @@ class DatePickerField extends StatelessWidget {
             Expanded(
               child: Text(
                 selectedDate == null
-                    ? "Select Booking Date"
+                    ? hintText
                     : DateFormat("dd MMM yyyy").format(selectedDate!),
                 style: TextStyle(
                   fontSize: 16,
