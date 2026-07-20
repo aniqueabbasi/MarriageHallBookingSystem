@@ -21,7 +21,7 @@ namespace marriage_hall_backend.Services.Implementations
         public async Task<List<UserDto>> GetAllUsersAsync()
         {
             return await _db.Users
-                .Select(u => new UserDto { Id = u.Id, FullName = u.FullName, Email = u.Email, PhoneNumber = u.PhoneNumber, Role = u.Role })
+                .Select(u => new UserDto { Id = u.Id, FullName = u.FullName, Email = u.Email, PhoneNumber = u.PhoneNumber, City = u.City, Role = u.Role })
                 .ToListAsync();
         }
 
@@ -34,7 +34,7 @@ namespace marriage_hall_backend.Services.Implementations
             user.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            return new UserDto { Id = user.Id, FullName = user.FullName, Email = user.Email, PhoneNumber = user.PhoneNumber, Role = user.Role };
+            return new UserDto { Id = user.Id, FullName = user.FullName, Email = user.Email, PhoneNumber = user.PhoneNumber, City = user.City, Role = user.Role };
         }
 
         public async Task<List<HallListDto>> GetAllHallsAsync()

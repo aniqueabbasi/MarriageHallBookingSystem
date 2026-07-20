@@ -43,5 +43,63 @@ namespace marriage_hall_backend.Helpers
 
             return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
         }
+
+        public (string Token, DateTime ExpiresAt) GeneratePasswordResetToken(int userId, int otpId)
+        {
+            var jwtSection = _configuration.GetSection("Jwt");
+            var key = jwtSection["Key"]!;
+            var expiresAt = DateTime.UtcNow.AddMinutes(10);
+
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, userId.ToString()),
+                new("otpId", otpId.ToString()),
+                new("purpose", "PasswordReset")
+            };
+
+            var credentials = new SigningCredentials(
+                new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+                SecurityAlgorithms.HmacSha256);
+
+            var token = new JwtSecurityToken(
+                issuer: jwtSection["Issuer"],
+                audience: jwtSection["Audience"],
+                claims: claims,
+                expires: expiresAt,
+                signingCredentials: credentials);
+
+            return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
+        }
+
+        public (int UserId, int OtpId)? ValidatePasswordResetToken(string token)
+        {
+            var jwtSection = _configuration.GetSection("Jwt");
+            var key = jwtSection["Key"]!;
+
+            try
+            {
+                var principal = new JwtSecurityTokenHandler().ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = jwtSection["Issuer"],
+                    ValidateAudience = true,
+                    ValidAudience = jwtSection["Audience"],
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key))
+                }, out _);
+
+                if (principal.FindFirstValue("purpose") != "PasswordReset")
+                    return null;
+
+                var userId = int.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var otpId = int.Parse(principal.FindFirstValue("otpId")!);
+                return (userId, otpId);
+            }
+            catch
+            {
+                return null;
+            }
+        }
     }
 }

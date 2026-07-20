@@ -21,6 +21,7 @@ namespace marriage_hall_backend.Data
         public DbSet<Review> Reviews => Set<Review>();
         public DbSet<Favorite> Favorites => Set<Favorite>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<PasswordResetOtp> PasswordResetOtps => Set<PasswordResetOtp>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -177,6 +178,15 @@ namespace marriage_hall_backend.Data
                 entity.HasOne(n => n.User)
                     .WithMany(u => u.Notifications)
                     .HasForeignKey(n => n.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ---- PasswordResetOtp ----
+            modelBuilder.Entity<PasswordResetOtp>(entity =>
+            {
+                entity.HasOne(o => o.User)
+                    .WithMany(u => u.PasswordResetOtps)
+                    .HasForeignKey(o => o.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

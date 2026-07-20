@@ -6,5 +6,8 @@ namespace marriage_hall_backend.Services.Interfaces
     {
         Task<TokenResponseDto> RegisterAsync(RegisterDto dto);
         Task<TokenResponseDto> LoginAsync(LoginDto dto);
+        Task ForgotPasswordAsync(ForgotPasswordDto dto);
+        Task<VerifyResetOtpResponseDto> VerifyResetOtpAsync(VerifyResetOtpDto dto);
+        Task ResetPasswordAsync(ResetPasswordDto dto);
     }
 }

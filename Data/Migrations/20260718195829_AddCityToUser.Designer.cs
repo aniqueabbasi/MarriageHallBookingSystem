@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using marriage_hall_backend.Data;
 
@@ -11,9 +12,11 @@ using marriage_hall_backend.Data;
 namespace marriage_hall_backend.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718195829_AddCityToUser")]
+    partial class AddCityToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -316,40 +319,6 @@ namespace marriage_hall_backend.Data.Migrations
                     b.ToTable("Notifications");
                 });
 
-            modelBuilder.Entity("marriage_hall_backend.Models.Entities.PasswordResetOtp", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("ExpiresAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("FailedAttempts")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsUsed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("OtpHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("PasswordResetOtps");
-                });
-
             modelBuilder.Entity("marriage_hall_backend.Models.Entities.Payment", b =>
                 {
                     b.Property<int>("Id")
@@ -621,17 +590,6 @@ namespace marriage_hall_backend.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("marriage_hall_backend.Models.Entities.PasswordResetOtp", b =>
-                {
-                    b.HasOne("marriage_hall_backend.Models.Entities.User", "User")
-                        .WithMany("PasswordResetOtps")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("marriage_hall_backend.Models.Entities.Payment", b =>
                 {
                     b.HasOne("marriage_hall_backend.Models.Entities.Booking", "Booking")
@@ -726,8 +684,6 @@ namespace marriage_hall_backend.Data.Migrations
                     b.Navigation("HallsOwned");
 
                     b.Navigation("Notifications");
-
-                    b.Navigation("PasswordResetOtps");
 
                     b.Navigation("Reviews");
                 });
