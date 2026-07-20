@@ -21,4 +21,7 @@ class AppRoutes {
 
   static const String ownerDashboard = '/owner-dashboard';
   static const String ownerDashboardName = 'owner-dashboard';
+
+  static const String admin = '/admin';
+  static const String adminName = 'admin';
 }

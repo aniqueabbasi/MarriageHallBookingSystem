@@ -4,21 +4,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
-import 'package:marriage_hall_app/controllers/profile/user_dummy_data.dart';
+import 'package:marriage_hall_app/controllers/profile/profile_controller.dart';
+import 'package:marriage_hall_app/models/profile/user_profile.dart';
 
+/// Shared by customers and owners — saves via `PUT /api/users/me`.
 class EditProfileScreen extends ConsumerStatefulWidget {
-  const EditProfileScreen({super.key});
+  final UserProfile profile;
+
+  const EditProfileScreen({super.key, required this.profile});
 
   @override
   ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
-  late final user = ref.read(userProfileControllerProvider);
-  late final nameController = TextEditingController(text: user['name']);
-  late final emailController = TextEditingController(text: user['email']);
-  late final phoneController = TextEditingController(text: user['phone']);
-  late final cityController = TextEditingController(text: user['city']);
+  late final nameController =
+      TextEditingController(text: widget.profile.fullName);
+  late final emailController = TextEditingController(text: widget.profile.email);
+  late final phoneController =
+      TextEditingController(text: widget.profile.phoneNumber ?? '');
+  late final cityController =
+      TextEditingController(text: widget.profile.city ?? '');
 
   @override
   void dispose() {
@@ -37,31 +43,54 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     );
   }
 
-  void saveChanges() {
-    if (nameController.text.trim().isEmpty) {
+  Future<void> saveChanges() async {
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Name is required")),
       );
       return;
     }
+    final emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailPattern.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Enter a valid email address")),
+      );
+      return;
+    }
 
-    ref
-        .read(userProfileControllerProvider.notifier)
-        .update(
-          name: nameController.text.trim(),
-          email: emailController.text.trim(),
-          phone: phoneController.text.trim(),
-          city: cityController.text.trim(),
+    final updated = await ref
+        .read(updateProfileControllerProvider.notifier)
+        .submit(
+          UpdateProfileRequest(
+            fullName: name,
+            email: email,
+            phoneNumber: phoneController.text.trim(),
+            city: cityController.text.trim(),
+          ),
         );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Profile updated successfully!")),
-    );
-    Navigator.pop(context, true);
+    if (!mounted) return;
+    if (updated != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Profile updated successfully!")),
+      );
+      Navigator.pop(context, true);
+    } else {
+      final message =
+          ref.read(updateProfileControllerProvider).errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message ?? 'Could not update your profile.')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final updateState = ref.watch(updateProfileControllerProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text("Edit Profile"), centerTitle: true),
@@ -151,9 +180,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             ),
             const SizedBox(height: AppSizes.xl),
             GradientButton(
-              label: "Save Changes",
+              label: updateState.isLoading ? "Saving..." : "Save Changes",
               icon: Icons.check_circle_outline,
-              onPressed: saveChanges,
+              onPressed: updateState.isLoading ? null : saveChanges,
             ),
           ],
         ),

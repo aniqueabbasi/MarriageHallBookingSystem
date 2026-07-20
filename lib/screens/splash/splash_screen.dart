@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:marriage_hall_app/app_router.dart';
 import 'package:marriage_hall_app/controllers/auth/auth_controller.dart';
-import 'package:marriage_hall_app/models/user_role.dart';
 import 'package:marriage_hall_app/resources/app_assets.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 
@@ -41,11 +41,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!mounted) return;
       final state = ref.read(authControllerProvider);
       if (state.isAuthenticated) {
-        context.go(
-          state.effectiveRole == UserRole.hallOwner
-              ? '/owner-dashboard'
-              : '/home',
-        );
+        context.go(homeRouteForRole(state.effectiveRole));
       } else {
         context.go('/roles');
       }

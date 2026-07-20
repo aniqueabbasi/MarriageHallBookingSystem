@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
+import 'package:marriage_hall_app/controllers/admin/admin_bookings_controller.dart';
 import 'package:marriage_hall_app/controllers/booking/booking_detail_controller.dart';
 import 'package:marriage_hall_app/controllers/booking/booking_status_controller.dart';
 import 'package:marriage_hall_app/controllers/booking/owner_bookings_controller.dart';
@@ -25,10 +26,15 @@ class OwnerBookingDetailScreen extends ConsumerWidget {
 
   const OwnerBookingDetailScreen({super.key, required this.bookingId});
 
+  /// This screen serves both hall owners and admins (the backend allows
+  /// Admin on the same status/payment endpoints), so both list providers
+  /// are invalidated — refetches are lazy, so whichever isn't being
+  /// watched costs nothing.
   void _refreshBooking(WidgetRef ref) {
     ref.invalidate(bookingDetailProvider(bookingId));
     ref.invalidate(bookingPaymentsProvider(bookingId));
     ref.invalidate(ownerBookingsProvider);
+    ref.invalidate(adminBookingsProvider);
   }
 
   Future<void> _updateStatus(

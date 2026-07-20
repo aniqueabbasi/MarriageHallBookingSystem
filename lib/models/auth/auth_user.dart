@@ -20,6 +20,8 @@ class AuthUser {
     fullName: json['fullName'] as String,
     email: json['email'] as String,
     phoneNumber: json['phoneNumber'] as String,
-    role: UserRoleX.fromApiRole(json['role'] as String),
+    role:
+        UserRoleX.fromApiRole(json['role'] as String) ??
+        (throw FormatException('Unknown user role: ${json['role']}')),
   );
 }

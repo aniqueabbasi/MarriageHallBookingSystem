@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -104,6 +106,14 @@ class ApiClient {
   ) async {
     final data = await _request(() => _dio.patch(path, data: body));
     return data is Map<String, dynamic> ? data : const {};
+  }
+
+  /// For endpoints whose body is a bare JSON literal rather than an
+  /// object — e.g. `PATCH /api/admin/users/{id}/role` expects just
+  /// `"Admin"`, not `{"role": "Admin"}`. [body] is JSON-encoded as-is
+  /// (a Dart String becomes a quoted JSON string).
+  Future<dynamic> patchRaw(String path, Object? body) async {
+    return _request(() => _dio.patch(path, data: jsonEncode(body)));
   }
 
   Future<Map<String, dynamic>> delete(String path) async {

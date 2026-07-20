@@ -9,7 +9,7 @@ import 'package:marriage_hall_app/screens/profile/help_support_screen.dart';
 import 'package:marriage_hall_app/screens/profile/privacy_policy_screen.dart';
 import 'package:marriage_hall_app/screens/profile/terms_conditions_screen.dart';
 import 'package:marriage_hall_app/widgets/profile/profile_menu_tile.dart';
-import 'package:marriage_hall_app/controllers/profile/owner_user_dummy_data.dart';
+import 'package:marriage_hall_app/controllers/profile/profile_controller.dart';
 import 'package:marriage_hall_app/screens/owner/owner_view_profile_screen.dart';
 
 class OwnerProfileMenuScreen extends ConsumerWidget {
@@ -52,7 +52,7 @@ class OwnerProfileMenuScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(ownerProfileControllerProvider);
+    final profile = ref.watch(myProfileProvider).value;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -93,13 +93,13 @@ class OwnerProfileMenuScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user['name'],
+                            profile?.fullName ?? ' ',
                             style: Theme.of(context).textTheme.headlineMedium
                                 ?.copyWith(color: Colors.white),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            user['email'],
+                            profile?.email ?? ' ',
                             style: const TextStyle(color: Colors.white70),
                           ),
                         ],

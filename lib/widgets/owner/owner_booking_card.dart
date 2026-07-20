@@ -11,7 +11,16 @@ class OwnerBookingCard extends StatelessWidget {
   final Booking booking;
   final VoidCallback? onTap;
 
-  const OwnerBookingCard({super.key, required this.booking, this.onTap});
+  /// Extra context line under the header (e.g. the admin list shows
+  /// "Booking #7 · Advance Rs. 20,000" here). Hidden when null.
+  final String? metaLine;
+
+  const OwnerBookingCard({
+    super.key,
+    required this.booking,
+    this.onTap,
+    this.metaLine,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -74,6 +83,17 @@ class OwnerBookingCard extends StatelessWidget {
                   ),
                 ],
               ),
+              if (metaLine != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  metaLine!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
               const SizedBox(height: AppSizes.sm),
               Wrap(
                 spacing: AppSizes.sm,

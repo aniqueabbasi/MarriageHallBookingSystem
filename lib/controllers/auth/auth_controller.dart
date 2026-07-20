@@ -26,12 +26,18 @@ class AuthState {
   /// this) survive — [user] is only populated right after a fresh login.
   final UserRole? role;
 
+  /// Same idea as [role] but for the user's id (decoded from the JWT on
+  /// session restore) — needed e.g. to detect an admin editing their own
+  /// account.
+  final int? userId;
+
   const AuthState({
     this.status = AuthStatus.idle,
     this.errorMessage,
     this.user,
     this.session = SessionStatus.unknown,
     this.role,
+    this.userId,
   });
 
   bool get isLoading => status == AuthStatus.loading;
@@ -41,12 +47,16 @@ class AuthState {
   /// fresh login (via [user]) or a restored session (via [role]).
   UserRole? get effectiveRole => user?.role ?? role;
 
+  /// See [effectiveRole].
+  int? get effectiveUserId => user?.id ?? userId;
+
   AuthState copyWith({
     AuthStatus? status,
     String? errorMessage,
     AuthUser? user,
     SessionStatus? session,
     UserRole? role,
+    int? userId,
   }) {
     return AuthState(
       status: status ?? this.status,
@@ -54,6 +64,7 @@ class AuthState {
       user: user ?? this.user,
       session: session ?? this.session,
       role: role ?? this.role,
+      userId: userId ?? this.userId,
     );
   }
 }
@@ -146,7 +157,11 @@ class AuthController extends Notifier<AuthState> {
 
     final roleValue = await storage.getUserRole();
     final role = roleValue == null ? null : UserRoleX.fromApiRole(roleValue);
-    state = AuthState(session: SessionStatus.authenticated, role: role);
+    state = AuthState(
+      session: SessionStatus.authenticated,
+      role: role,
+      userId: _jwtUserId(token),
+    );
   }
 
   /// Invoked by the API layer when a request comes back 401 — the token is
@@ -154,6 +169,30 @@ class AuthController extends Notifier<AuthState> {
   /// reflects that into app state so the UI routes to login.
   void handleUnauthorized() {
     state = const AuthState(session: SessionStatus.unauthenticated);
+  }
+
+  Map<String, dynamic>? _jwtPayload(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      return jsonDecode(
+            utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+          )
+          as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// The backend puts the user id in the .NET name-identifier claim.
+  int? _jwtUserId(String token) {
+    final payload = _jwtPayload(token);
+    if (payload == null) return null;
+    final raw =
+        payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ??
+        payload['nameid'] ??
+        payload['sub'];
+    return raw is int ? raw : int.tryParse(raw?.toString() ?? '');
   }
 
   bool _isJwtExpired(String token) {

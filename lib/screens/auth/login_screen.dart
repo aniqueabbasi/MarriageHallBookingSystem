@@ -6,6 +6,7 @@ import 'package:marriage_hall_app/resources/app_assets.dart';
 import 'package:marriage_hall_app/resources/app_colors.dart';
 import 'package:marriage_hall_app/resources/app_sizes.dart';
 import 'package:marriage_hall_app/resources/app_strings.dart';
+import 'package:marriage_hall_app/app_router.dart';
 import 'package:marriage_hall_app/widgets/shared/gradient_button.dart';
 import 'package:marriage_hall_app/controllers/auth/auth_controller.dart';
 import 'package:marriage_hall_app/models/user_role.dart';
@@ -74,11 +75,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (success) {
       final loggedInRole = ref.read(authControllerProvider).user?.role;
-      if (loggedInRole == UserRole.hallOwner) {
-        context.go('/owner-dashboard');
-      } else {
-        context.go('/home');
-      }
+      context.go(homeRouteForRole(loggedInRole));
     } else {
       final message = ref.read(authControllerProvider).errorMessage;
       ScaffoldMessenger.of(
@@ -192,7 +189,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () => context.push('/forgot-password'),
+                          onPressed: () =>
+                              context.push('/forgot-password', extra: widget.role),
                           child: const Text(AppStrings.forgotPassword),
                         ),
                       ),
