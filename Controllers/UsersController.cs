@@ -26,5 +26,9 @@ namespace marriage_hall_backend.Controllers
         [HttpPut("me")]
         public async Task<ActionResult<UserDto>> UpdateMe(UpdateProfileDto dto)
             => Ok(await _userService.UpdateMeAsync(User.GetUserId(), dto));
+
+        [HttpPut("me/cnic")]
+        public async Task<ActionResult<CnicDetailsResponseDto>> SaveCnicDetails(CnicDetailsDto dto)
+            => Ok(await _userService.SaveCnicDetailsAsync(User.GetUserId(), dto));
     }
 }

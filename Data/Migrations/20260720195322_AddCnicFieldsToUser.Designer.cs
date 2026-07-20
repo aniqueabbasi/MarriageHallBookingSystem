@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using marriage_hall_backend.Data;
 
@@ -11,9 +12,11 @@ using marriage_hall_backend.Data;
 namespace marriage_hall_backend.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720195322_AddCnicFieldsToUser")]
+    partial class AddCnicFieldsToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -436,6 +439,27 @@ namespace marriage_hall_backend.Data.Migrations
                     b.Property<string>("City")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateOnly?>("CnicDateOfBirth")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("CnicDateOfExpiry")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("CnicDateOfIssue")
+                        .HasColumnType("date");
+
+                    b.Property<string>("CnicFatherOrHusbandName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CnicFullName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CnicGender")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CnicNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -466,76 +490,6 @@ namespace marriage_hall_backend.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
-                });
-
-            modelBuilder.Entity("marriage_hall_backend.Models.Entities.UserCnicDetails", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CnicLast4")
-                        .IsRequired()
-                        .HasMaxLength(4)
-                        .HasColumnType("nvarchar(4)");
-
-                    b.Property<string>("CnicNumberEncrypted")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<string>("CnicNumberHash")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateOnly?>("DateOfBirth")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("DateOfExpiry")
-                        .HasColumnType("date");
-
-                    b.Property<DateOnly?>("DateOfIssue")
-                        .HasColumnType("date");
-
-                    b.Property<string>("FatherOrHusbandName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("FullName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("Gender")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("VerificationStatus")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CnicNumberHash")
-                        .IsUnique();
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("UserCnicDetails");
                 });
 
             modelBuilder.Entity("marriage_hall_backend.Models.Entities.VirtualTour", b =>
@@ -740,17 +694,6 @@ namespace marriage_hall_backend.Data.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("marriage_hall_backend.Models.Entities.UserCnicDetails", b =>
-                {
-                    b.HasOne("marriage_hall_backend.Models.Entities.User", "User")
-                        .WithOne("CnicDetails")
-                        .HasForeignKey("marriage_hall_backend.Models.Entities.UserCnicDetails", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("marriage_hall_backend.Models.Entities.VirtualTour", b =>
                 {
                     b.HasOne("marriage_hall_backend.Models.Entities.Hall", "Hall")
@@ -801,8 +744,6 @@ namespace marriage_hall_backend.Data.Migrations
             modelBuilder.Entity("marriage_hall_backend.Models.Entities.User", b =>
                 {
                     b.Navigation("Bookings");
-
-                    b.Navigation("CnicDetails");
 
                     b.Navigation("Favorites");
 

@@ -22,6 +22,7 @@ namespace marriage_hall_backend.Data
         public DbSet<Favorite> Favorites => Set<Favorite>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<PasswordResetOtp> PasswordResetOtps => Set<PasswordResetOtp>();
+        public DbSet<UserCnicDetails> UserCnicDetails => Set<UserCnicDetails>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -187,6 +188,26 @@ namespace marriage_hall_backend.Data
                 entity.HasOne(o => o.User)
                     .WithMany(u => u.PasswordResetOtps)
                     .HasForeignKey(o => o.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ---- UserCnicDetails ----
+            modelBuilder.Entity<UserCnicDetails>(entity =>
+            {
+                entity.HasIndex(c => c.UserId).IsUnique();
+                entity.HasIndex(c => c.CnicNumberHash).IsUnique();
+
+                entity.Property(c => c.CnicNumberEncrypted).IsRequired().HasMaxLength(1000);
+                entity.Property(c => c.CnicNumberHash).IsRequired().HasMaxLength(64);
+                entity.Property(c => c.CnicLast4).IsRequired().HasMaxLength(4);
+                entity.Property(c => c.FullName).IsRequired().HasMaxLength(150);
+                entity.Property(c => c.FatherOrHusbandName).HasMaxLength(150);
+                entity.Property(c => c.Gender).HasMaxLength(20);
+                entity.Property(c => c.VerificationStatus).IsRequired().HasMaxLength(20);
+
+                entity.HasOne(c => c.User)
+                    .WithOne(u => u.CnicDetails)
+                    .HasForeignKey<UserCnicDetails>(c => c.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

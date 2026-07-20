@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="marriage_hall_backend.csproj" />
+  <Project Path="tests/marriage_hall_backend.Tests/marriage_hall_backend.Tests.csproj" />
 </Solution>

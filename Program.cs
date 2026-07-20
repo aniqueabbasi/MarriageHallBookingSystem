@@ -52,6 +52,9 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHttpClient<IEmailService, BrevoEmailService>();
 
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<ISensitiveDataProtector, SensitiveDataProtector>();
+
 var jwtSection = builder.Configuration.GetSection("Jwt");
 builder.Services.AddAuthentication(options =>
 {
@@ -80,6 +83,10 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Fail fast if sensitive-data protection (CNIC encryption) isn't configured,
+// e.g. a missing SensitiveData:HmacKey, rather than surfacing it on first request.
+app.Services.GetRequiredService<ISensitiveDataProtector>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

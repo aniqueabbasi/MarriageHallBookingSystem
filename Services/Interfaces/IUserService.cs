@@ -7,5 +7,6 @@ namespace marriage_hall_backend.Services.Interfaces
     {
         Task<UserDto> GetMeAsync(int userId);
         Task<UserDto> UpdateMeAsync(int userId, UpdateProfileDto dto);
+        Task<CnicDetailsResponseDto> SaveCnicDetailsAsync(int userId, CnicDetailsDto dto);
     }
 }
